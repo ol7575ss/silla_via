@@ -8,7 +8,7 @@ import type { Place } from './tripData'
 setWorkerUrl(workerUrl)
 
 interface MapProps {
-  places: Place[]
+  places: (Pick<Place, 'id' | 'name' | 'latitude' | 'longitude'> & Partial<Pick<Place, 'themes'>>)[]
   selectedIds: string[]
   originIds: string[]
   statuses?: Record<string, string>
@@ -141,11 +141,12 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
     {phase === 'error' && <div role="status"><p>{labels.mapError}</p>
       <button type="button" onClick={() => setAttempt(n => n + 1)}>{labels.mapRetry}</button></div>}
     {active && <p aria-live="polite"><strong>{labels[active.id] ?? active.name}</strong>
-      {' · '}{originIds.includes(active.id) ? labels.origin : active.themes.map(t => labels[t]).join(' · ')}
+      {' · '}{originIds.includes(active.id) ? labels.origin : active.themes?.map(t => labels[t]).join(' · ')}
       {statuses?.[active.id] && ' · ' + labels[statuses[active.id]]}{active.id === currentId && ' · ' + labels.current}
       {selectedIds.includes(active.id) && ' · ' + labels.selected}</p>}
   </section>
 }
+
 
 
 

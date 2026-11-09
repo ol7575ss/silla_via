@@ -7,6 +7,8 @@ import type { Theme, TripPreferences } from './tripData'
 import { JourneyResult } from './JourneyResult'
 import { InstallHint } from './InstallHint'
 import { LivePanel } from './LivePanel'
+import { TourPanel } from './TourPanel'
+import type { TourPlace } from './tourData'
 import './App.css'
 
 type ChoiceProps<T extends string> = {
@@ -32,6 +34,8 @@ const motifs = ['✦', '◒', '⌂', '≋', '◇', '⌂', '◈', '≋']
 
 export default function App() {
   const [live, setLive] = useState(false)
+  const [date, setDate] = useState(() => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))
+  const [tourEvent, setTourEvent] = useState<TourPlace | null>(null)
   const [forecastRisk, setForecastRisk] = useState(false)
   const [language, setLanguage] = useState(savedLanguage)
   const en = useMemo(() => messages(language), [language])
@@ -46,6 +50,9 @@ export default function App() {
     originId: '', startTime: '10:00', endTime: '18:00', themes: [],
     destinationIds: [], returnToOrigin: false, eventId: null,
   })
+  const liveTrip = useMemo(() => ({ ...trip, eventId: null }), [trip])
+  const tourPanel = live && <TourPanel labels={en} language={language} eventsOnly={screen === 'events'}
+    date={date} setDate={value => { setDate(value); setTourEvent(null) }} selected={tourEvent} select={setTourEvent} />
   const matches = performance.themes.some(theme => trip.themes.includes(theme))
 
   function update(fields: Partial<TripPreferences>) {
@@ -108,7 +115,7 @@ export default function App() {
     {screen === 'events' && <section className="planner">
       <button className="back" onClick={() => setScreen('planner')}>← {en.back}</button>
       <small className="step">2 / 3</small><h1>{en.events}</h1>
-      {matches ? <article className="event">
+      {live ? <>{tourPanel}<div className="actions"><button onClick={() => setScreen('summary')}>{en.next}</button></div></> : matches ? <article className="event">
         {performance.demoOnly && <strong className="demo">{en.demo}</strong>}
         <h2>{en.eventName}</h2>
         <p>{en.venue}<br />{performance.startTime}–{performance.endTime} · {en[performance.setting]}<br />
@@ -121,15 +128,18 @@ export default function App() {
     {screen === 'summary' && <section className="planner">
       <button className="back" onClick={() => setScreen('events')}>← {en.back}</button>
       <small className="step">3 / 3</small><h1>{en.journey}</h1>
-      <JourneyResult live={live} forecastRisk={forecastRisk} trip={trip} labels={en} edit={() => setScreen('planner')} />
+      {live && tourEvent && <p>{en.event} · <span lang="ko">{tourEvent.name}</span> · {en.tourUnscheduled}</p>}
+      <JourneyResult key={live ? 'live' : 'demo'} live={live} forecastRisk={forecastRisk} trip={live ? liveTrip : trip} labels={en} edit={() => setScreen('planner')} />
     </section>}
     <details><summary>{en.dataMode} · {live ? 'LIVE' : 'DEMO'}</summary>
       <label><input type="checkbox" checked={live} onChange={e => setLive(e.target.checked)} /> LIVE</label>
     </details>
+    {screen !== 'events' && screen !== 'summary' && tourPanel}
     {live && <LivePanel labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setForecastRisk} />}
     <InstallHint labels={en} visible={screen === 'welcome'} />
   </main>
 }
+
 
 
 

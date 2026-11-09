@@ -69,3 +69,9 @@ button.place-pin.chosen { background: #006052; outline: 3px solid #f6cb69; z-ind
 button.place-pin.current-pin { outline: 4px solid #e2ad3f; z-index: 2; }
 
 .install-hint { margin-top: 16px; }
+.tour-panel { margin: 16px 0; }
+.tour-panel figure { margin: 0; }
+.tour-panel img { display: block; max-width: 100%; height: auto; }
+.tour-panel figcaption { font-size: .75rem; }
+.tour-panel .place-card { grid-template-rows: none; align-content: start; }
+.tour-panel button[aria-pressed=true] { outline: 2px solid #14594f; }
