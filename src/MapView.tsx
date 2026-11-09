@@ -8,11 +8,13 @@ interface MapProps {
   places: Place[]
   selectedIds: string[]
   originIds: string[]
+  statuses?: Record<string, string>
+  currentId?: string
   visitOrder?: Record<string, number>
   labels: Messages
 }
 
-export function MapView({ places, selectedIds, originIds, visitOrder, labels }: MapProps) {
+export function MapView({ places, selectedIds, originIds, visitOrder, statuses, currentId, labels }: MapProps) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<LibreMap | null>(null)
   const [failed, setFailed] = useState(false)
@@ -61,12 +63,21 @@ export function MapView({ places, selectedIds, originIds, visitOrder, labels }: 
       button.className = 'place-pin' + (selected ? ' chosen' : '') + (origin ? ' origin-pin' : '')
       button.textContent = visitOrder?.[p.id] ? String(visitOrder[p.id]) : selected ? '✓' : origin ? '⚑' : '●'
       button.title = selected ? name + ' · ' + labels.selected : name
+      const status = statuses?.[p.id]
+      if (status) {
+        button.classList.add(status)
+        button.title += ' · ' + labels[status]
+      }
+      if (p.id === currentId) {
+        button.classList.add('current-pin')
+        button.title += ' · ' + labels.current
+      }
       button.setAttribute('aria-label', button.title)
       button.onclick = () => setActiveId(p.id)
       markers.push(new Marker({ element: button }).setLngLat([p.longitude, p.latitude]).addTo(instance))
     }
     return () => markers.forEach(marker => marker.remove())
-  }, [places, selectedIds, originIds, visitOrder, labels])
+  }, [places, selectedIds, originIds, visitOrder, statuses, currentId, labels])
 
   return <section className="map-panel">
     <h2>{labels.map}</h2>
@@ -74,7 +85,9 @@ export function MapView({ places, selectedIds, originIds, visitOrder, labels }: 
     {failed && <p role="status">{labels.mapError}</p>}
     {active && <p aria-live="polite"><strong>{labels[active.id] ?? active.name}</strong>
       {' · '}{originIds.includes(active.id) ? labels.origin : active.themes.map(t => labels[t]).join(' · ')}
+      {statuses?.[active.id] && ' · ' + labels[statuses[active.id]]}{active.id === currentId && ' · ' + labels.current}
       {selectedIds.includes(active.id) && ' · ' + labels.selected}</p>}
   </section>
 }
+
 

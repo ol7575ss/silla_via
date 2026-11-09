@@ -13,7 +13,7 @@ export interface Visit {
   isEvent: boolean
   hoursUnknown: boolean
 }
-interface Journey {
+export interface Journey {
   visits: Visit[]
   travel: number
   sightseeing: number
@@ -31,14 +31,14 @@ function minutes(time: string) {
   return h * 60 + m
 }
 
-export function optimizeRoute(trip: TripPreferences, places: Place[], event: EventSlot, legs: TravelLeg[]): Result {
+export function optimizeRoute(trip: TripPreferences, places: Place[], event: EventSlot, legs: TravelLeg[], rain?: { returnPlaceId: string }): Result {
   const gaps = new Map<string, [string, string]>()
   const fail = (reason: Problem): Result => ({ ok: false, reason, gaps: reason === 'missingLeg' ? [...gaps.values()] : [] })
   const start = minutes(trip.startTime)
   const end = minutes(trip.endTime)
   const required = new Set(trip.destinationIds)
   if (!(start < end)) return fail('timeRange')
-  if (!required.size) return fail('choosePlaces')
+  if (!required.size && !rain) return fail('choosePlaces')
   if (required.size > 5) return fail('limit')
   const attending = trip.eventId === event.id
   const eventStart = minutes(event.startTime)
@@ -52,14 +52,19 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
     const id = key(leg.fromPlaceId, leg.toPlaceId)
     if (leg.durationMinutes < (links.get(id)?.durationMinutes ?? Infinity)) links.set(id, leg)
   }
-  const score = (p: Place) => p.themes.filter(theme => trip.themes.includes(theme)).length
-  const optional = places.filter(p => !required.has(p.id) && score(p) > 0 &&
+  const score = (p: Place) => {
+    const matches = p.themes.filter(theme => trip.themes.includes(theme)).length
+    if (!rain) return matches
+    return p.setting === 'indoor' ? 10 + matches : matches - 6
+  }
+  const optional = places.filter(p => !required.has(p.id) && (score(p) > 0 || (rain && p.themes.some(t => trip.themes.includes(t)))) &&
     legs.some(l => l.toPlaceId === p.id)).sort((a, b) => score(b) - score(a))
   const candidates = [...required, ...optional.slice(0, 5 - required.size).map(p => p.id)]
   if (attending) candidates.push(event.id)
   const byId = new Map(places.map(p => [p.id, p]))
   let best: Journey | undefined
-  let bestScore = -1
+  let bestScore = -Infinity
+  let earliestIndoor = Infinity
   let reachedStops = false
   let timedOut = false
   let missedEvent = false
@@ -106,14 +111,18 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
     reachedStops = true
     let returnLeg: TravelLeg | null = null
     if (trip.returnToOrigin) {
-      returnLeg = links.get(key(from, trip.originId)) ?? null
-      if (!returnLeg) { gaps.set(key(from, trip.originId), [from, trip.originId]); return }
+      const home = rain?.returnPlaceId ?? trip.originId
+      returnLeg = links.get(key(from, home)) ?? null
+      if (!returnLeg) { gaps.set(key(from, home), [from, home]); return }
       clock += returnLeg.durationMinutes
       travel += returnLeg.durationMinutes
       if (clock > end) { lateReturn = true; return }
     }
-    if (affinity < bestScore || (affinity === bestScore && best &&
+    const indoorArrival = rain ? visits.find(v => byId.get(v.placeId)?.setting === 'indoor')?.arrival ?? Infinity : Infinity
+    if (affinity === bestScore && indoorArrival > earliestIndoor) return
+    if (affinity < bestScore || (affinity === bestScore && indoorArrival === earliestIndoor && best &&
       (travel > best.travel || (travel === best.travel && clock >= best.finish)))) return
+    earliestIndoor = indoorArrival
     bestScore = affinity
     best = { visits, travel, sightseeing, finish: clock, returnLeg, returnTime: returnLeg ? clock : null,
       demoOnly: visits.some(v => v.leg.demoOnly) || !!returnLeg?.demoOnly }
@@ -131,4 +140,5 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
   if (missedEvent) return fail('eventTime')
   return fail('missingLeg')
 }
+
 

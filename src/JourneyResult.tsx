@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { optimizeRoute } from './algorithms/optimizeRoute'
 import { demoTravelLegs } from './travelTimes'
 import { destinations, origins, performance } from './tripData'
@@ -6,12 +6,16 @@ import type { TripPreferences } from './tripData'
 import type { Messages } from './i18n'
 import { MapView } from './MapView'
 
-function clock(minutes: number) {
-  return [Math.floor(minutes / 60), minutes % 60].map(n => String(n).padStart(2, '0')).join(':')
-}
-
+import { clock, rainCheckpoint, replanRemainingRoute } from './algorithms/replanRemainingRoute'
+import type { Journey, Visit } from './algorithms/optimizeRoute'
 export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; labels: Messages; edit: () => void }) {
   const result = useMemo(() => optimizeRoute(trip, destinations, performance, demoTravelLegs), [trip])
+  const [weather, setWeather] = useState<'CLEAR' | 'RAIN'>('CLEAR')
+  const [preference, setPreference] = useState<'INDOOR' | 'KEEP_ORIGINAL' | null>(null)
+  const [replacement, setReplacement] = useState<Journey | null>(null)
+  const [selectedEventId, setSelectedEventId] = useState(trip.eventId)
+  const [problem, setProblem] = useState('')
+  const [waiver, setWaiver] = useState<string[]>([])
   const name = (id: string) => id === performance.id ? labels.eventName : labels[id]
   const duration = (n: number) => n + ' ' + labels.unit
   if (!result.ok) return <div>
@@ -20,14 +24,83 @@ export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; l
       <li key={from + '/' + to}>{name(from)} → {name(to)}</li>)}</ul>}
     <button onClick={edit}>{labels.editTrip}</button>
   </div>
-  const route = result.journey
+  const original = result.journey
+  const route = replacement ?? original
+  const raining = weather === 'RAIN'
+  const checkpoint = rainCheckpoint(original, trip)
+  const completed = raining ? checkpoint.completed.map(v => v.placeId) : []
+  const current = raining ? checkpoint.currentPlaceId : trip.originId
+  const removed = original.visits.filter(old => !route.visits.some(v => v.placeId === old.placeId))
+  const pendingEvent = !!trip.eventId && !completed.includes(trip.eventId)
+  function status(v: Visit) {
+    if (completed.includes(v.placeId)) return 'completed'
+    const old = original.visits.find(stop => stop.placeId === v.placeId)
+    if (!old) return 'added'
+    if (old.order !== v.order || old.arrival !== v.arrival || old.departure !== v.departure ||
+      old.leg.fromPlaceId !== v.leg.fromPlaceId || old.leg.durationMinutes !== v.leg.durationMinutes) return 'changed'
+    return 'kept'
+  }
+  const markerStatus = Object.fromEntries([
+    ...removed.map(v => [v.placeId, 'removed']),
+    ...route.visits.map(v => [v.placeId, status(v)]),
+  ])
+  function applyIndoor(allowed: string[] = []) {
+    const next = replanRemainingRoute(original, trip, selectedEventId, allowed)
+    if (next.ok) {
+      setReplacement(next.journey)
+      setPreference('INDOOR')
+      setProblem('')
+      setWaiver([])
+      return
+    }
+    setProblem(next.reason)
+    // Seek the smallest feasible set of omissions before requesting consent.
+    const pending = trip.destinationIds.filter(id => !completed.includes(id))
+    const subsets = pending.reduce<string[][]>((sets, id) => [...sets, ...sets.map(set => [...set, id])], [[]])
+    setWaiver(subsets.filter(set => set.length).sort((a, b) => a.length - b.length)
+      .find(set => replanRemainingRoute(original, trip, selectedEventId, set).ok) ?? [])
+  }
+  function resetDemo() {
+    setWeather('CLEAR')
+    setPreference(null)
+    setReplacement(null)
+    setSelectedEventId(trip.eventId)
+    setProblem('')
+    setWaiver([])
+  }
   const order = Object.fromEntries(route.visits.map(v => [v.placeId, v.order]))
-  const places = [...origins.filter(p => p.id === trip.originId), ...destinations.filter(p => p.id in order)]
+  const places = [...origins.filter(p => p.id === trip.originId), ...destinations.filter(p => p.id in order || removed.some(v => v.placeId === p.id))]
   return <>
     <p><strong>{name(trip.originId)}</strong><br />{trip.startTime}–{trip.endTime}</p>
+    <section className="weather-panel">
+      <strong>{labels[raining ? 'rain' : 'clear']}</strong>
+      <p>{raining ? clock(checkpoint.currentTime) : trip.startTime} · {labels.current} · {name(current)}</p>
+      {!raining && <button onClick={() => setWeather('RAIN')}>{labels.simulate}</button>}
+      {raining && !preference && <>
+        <p>{labels.question}</p>
+        {pendingEvent && <><p>{labels.outdoorAlert}</p><label className="return"><input type="checkbox"
+          checked={!!selectedEventId} onChange={e => { setSelectedEventId(e.target.checked ? trip.eventId : null); setProblem(''); setWaiver([]) }} />
+          {labels.keepEvent}</label></>}
+        <div className="actions"><button onClick={() => applyIndoor()}>{labels.switchIndoor}</button>
+          <button className="secondary" onClick={() => { setPreference('KEEP_ORIGINAL'); setSelectedEventId(trip.eventId); setProblem(''); setWaiver([]) }}>{labels.keepRoute}</button></div>
+        {problem && <p role="alert">{labels[problem]} {labels.unchanged}</p>}
+        {waiver.length > 0 && <button onClick={() => applyIndoor(waiver)}>{labels.omitRequired} · {waiver.map(name).join(', ')}</button>}
+      </>}
+      {(preference === 'KEEP_ORIGINAL' || (replacement && !removed.length &&
+        route.visits.every(v => ['completed', 'kept'].includes(status(v))) && route.finish === original.finish)) &&
+        <p>{labels.unchanged}</p>}
+      {raining && <button className="secondary" onClick={resetDemo}>{labels.reset}</button>}
+    </section>
+    {replacement && <details><summary>{labels.original}</summary><ol>{original.visits.map(v =>
+      <li key={v.placeId}>{name(v.placeId)} · {clock(v.arrival)}–{clock(v.departure)} · {labels[v.leg.mode === 'BUS' ? 'bus' : 'walk']} {duration(v.leg.durationMinutes)}</li>)}</ol>
+      <p>{labels.totalTravel} · {duration(original.travel)} → {duration(route.travel)}</p>
+      {original.returnTime !== null && <p>{labels.returnAt} · {clock(original.returnTime)}</p>}</details>}
+    {removed.map(v => <p className="route-status removed" key={v.placeId}>{labels.removed} · {name(v.placeId)}</p>)}
     <ol className="timeline">{route.visits.map(v => <li key={v.placeId}>
       <small>{labels[v.leg.mode === 'BUS' ? 'bus' : 'walk']} · {duration(v.leg.durationMinutes)}</small>
       <h2>{name(v.placeId)}</h2>
+      {raining && <span className={'route-status ' + status(v)}>{labels[status(v)]}
+        {destinations.some(p => p.id === v.placeId && p.setting === 'indoor') && ' · ' + labels.indoor}</span>}
       <div>{labels.arrival} {clock(v.arrival)} · {labels.depart} {clock(v.departure)}</div>
       {v.wait > 0 && <div>{labels.wait} {duration(v.wait)} ({clock(v.arrival)}–{clock(v.arrival + v.wait)})</div>}
       {v.isEvent && <div>{labels.venue} · {performance.startTime}–{performance.endTime} ({labels.demo})</div>}
@@ -41,7 +114,9 @@ export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; l
     <p>{labels.totalTravel} · {duration(route.travel)}<br />{labels.totalStay} · {duration(route.sightseeing)}<br />
       {labels.finishTime} · {clock(route.finish)}</p>
     {route.demoOnly && <p className="demo">{labels.demoTravel}</p>}
-    <MapView places={places} selectedIds={[]} originIds={[trip.originId]} visitOrder={order} labels={labels} />
+    <MapView places={places} selectedIds={[]} originIds={[trip.originId]} visitOrder={order} statuses={raining ? markerStatus : undefined} currentId={raining ? current : undefined} labels={labels} />
     <button onClick={edit}>{labels.editTrip}</button>
   </>
 }
+
+

@@ -58,3 +58,12 @@ button.place-pin.chosen { background: #006052; outline: 3px solid #f6cb69; z-ind
 .timeline li::marker { color: #225b52; font-weight: 700; }
 .timeline h2 { margin: 5px 0; font-size: 1.15rem; }
 .timeline small { color: #50665f; }
+.weather-panel { padding: 16px; margin-bottom: 18px; border: 1px solid #c7d6d1; border-radius: 12px; background: #eef4f0; }
+.weather-panel p { margin: 8px 0; }
+.weather-panel > button.secondary { margin-top: 12px; }
+.route-status { display: inline-block; margin: 4px 0; padding: 2px 8px; border-radius: 6px; background: #e5ece8; font-size: .82rem; }
+.route-status.changed, button.place-pin.changed { background: #775322; color: white; }
+.route-status.added, button.place-pin.added { background: #20664f; color: white; }
+.route-status.completed, button.place-pin.completed { background: #405d83; color: white; }
+.route-status.removed, button.place-pin.removed { background: #73545b; color: white; text-decoration: line-through; }
+button.place-pin.current-pin { outline: 4px solid #e2ad3f; z-index: 2; }

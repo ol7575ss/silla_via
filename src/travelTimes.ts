@@ -26,3 +26,9 @@ export const demoTravelLegs = [
   estimate(event, 'museum', 16), estimate('museum', event, 16),
   estimate('museum', hotel, 25, 'BUS'),
 ]
+
+// Extra museum links available in the rain demonstration.
+export const rainTravelLegs = [...demoTravelLegs,
+  estimate('daereungwon', 'museum', 21, 'BUS'),
+  estimate('museum', 'daereungwon', 22, 'BUS'),
+]
