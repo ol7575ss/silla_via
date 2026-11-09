@@ -31,3 +31,25 @@ input[type=checkbox] { accent-color: #14594f; margin: 0; }
 .event { padding: 20px; border: 1px solid #bfcec6; border-radius: 12px; }
 .demo { color: #14594f; font-size: .8rem; letter-spacing: .08em; }
 .secondary { background: #e1eee5; color: #14594f; }
+header { gap: 1rem; }
+.language { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; color: #47615b; font-size: .8rem; }
+.language select { font: inherit; padding: 9px; border: 1px solid #b8c5bc; border-radius: 9px; color: #203b39; background: #fffef9; }
+.welcome, .planner { box-shadow: 0 12px 36px #4245350d; }
+.location, .step { display: block; margin-bottom: 12px; color: #795e31; font-weight: 650; letter-spacing: .065em; }
+.step { text-align: right; border-bottom: 2px solid #b79a64; padding-bottom: 8px; }
+.landscape i::after { content: ''; position: absolute; left: 71%; top: -18%; width: 16%; height: 38%; background: repeating-linear-gradient(0deg,#385954 0 9%,#517369 10% 12%); clip-path: polygon(14% 0,86% 0,86% 10%,73% 10%,71% 37%,90% 88%,100% 88%,100% 100%,0 100%,0 88%,10% 88%,29% 37%,27% 10%,14% 10%); }
+.place-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,165px),1fr)); gap: 10px; }
+.place-card { display: grid; grid-template-rows: 50px auto 1fr auto; gap: 6px; padding: 12px; border: 1px solid #c9d1c9; border-radius: 12px; cursor: pointer; overflow-wrap: anywhere; }
+.place-card:has(:checked) { background: #edf6ef; border-color: #29695c; box-shadow: inset 0 0 0 1px #29695c; }
+.motif { display: grid; place-items: center; border-radius: 6px; color: #f9edcb; font: 34px Georgia,serif; background: radial-gradient(ellipse at 8% 140%, #608777 48%, transparent 49%),linear-gradient(145deg,#294b48,#93b1a1); }
+.motif-bulguksa,.motif-museum,.motif-hwangnidan { background: linear-gradient(140deg,#866e4a,#bea576); }
+.check-line { display: flex; align-items: center; gap: 7px; font-size: .8rem; color: #28564c; }
+.map-panel { margin: 20px 0; }
+.map-panel h2 { font-size: 1.15rem; }
+.map-canvas { height: clamp(280px, 45vh, 420px); border-radius: 12px; background: #e6ece5; }
+.map-panel p { margin: 8px 0; }
+button.place-pin { width: 26px; height: 26px; border-radius: 50%; padding: 0; border: 2px solid white; background: #415664; color: white; box-shadow: 0 1px 5px #172c3980; }
+button.origin-pin { border-radius: 6px; background: #816431; }
+button.place-pin.chosen { background: #006052; outline: 3px solid #f6cb69; z-index: 1; }
+.event { border-top: 3px solid #b69a64; background: #faf8ef; }
+@media(max-width: 420px) { .place-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }

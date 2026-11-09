@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { en } from './en'
+import { useEffect, useMemo, useState } from 'react'
+import { languages, messages, savedLanguage } from './i18n'
+import type { Language } from './i18n'
+import { MapView } from './MapView'
 import { destinations, origins, performance, themeNames } from './tripData'
 import type { Theme, TripPreferences } from './tripData'
 import './App.css'
@@ -21,9 +23,19 @@ function Choices<T extends string>({ title, options, selected, onChange }: Choic
   </div></fieldset>
 }
 
-const themes = (Object.keys(themeNames) as Theme[]).map(id => ({ id, name: themeNames[id] }))
+const mapPlaces = [...destinations, ...origins]
+const originIds = origins.map(p => p.id)
+const motifs = ['✦', '◒', '⌂', '≋', '◇', '⌂', '◈', '≋']
 
 export default function App() {
+  const [language, setLanguage] = useState(savedLanguage)
+  const en = useMemo(() => messages(language), [language])
+  const themes = (Object.keys(themeNames) as Theme[]).map(id => ({ id, name: en[id] }))
+  const [error, setError] = useState(false)
+  useEffect(() => {
+    document.documentElement.lang = language
+    try { localStorage.setItem('silla-via.language', language) } catch { /* Storage may be disabled. */ }
+  }, [language])
   const [screen, setScreen] = useState<'welcome' | 'planner' | 'events' | 'summary'>('welcome')
   const [trip, setTrip] = useState<TripPreferences>({
     originId: '', startTime: '10:00', endTime: '18:00', themes: [],
@@ -41,42 +53,61 @@ export default function App() {
   }
 
   return <main>
-    <header><strong>{en.brand}</strong><span>{en.location}</span></header>
+    <header><strong>{en.brand}</strong><label className="language">{en.language}<select value={language} onChange={e => setLanguage(e.target.value as Language)}>
+      {Object.entries(languages).map(([id, name]) => <option lang={id} key={id} value={id}>{name}</option>)}
+    </select></label></header>
     {screen === 'welcome' && <section className="welcome">
       <div className="landscape" aria-hidden="true"><i /></div>
-      <div className="copy"><h1>{en.title}</h1><p>{en.intro}</p>
+      <div className="copy"><small className="location">{en.location}</small><h1>{en.title}</h1><p>{en.intro}</p>
         <button onClick={() => setScreen('planner')}>{en.start} <span aria-hidden="true">→</span></button>
       </div>
     </section>}
     {screen === 'planner' && <section className="planner">
       <button className="back" onClick={() => setScreen('welcome')}>← {en.back}</button>
-      <h1>{en.planner}</h1>
-      <form onSubmit={e => { e.preventDefault(); setScreen('events') }}>
+      <small className="step">1 / 3</small><h1>{en.planner}</h1>
+      <form noValidate onSubmit={e => {
+        e.preventDefault()
+        const invalid = !trip.originId || !trip.startTime || !trip.endTime
+        setError(invalid)
+        if (!invalid) setScreen('events')
+      }}>
         <label>{en.origin}<select required value={trip.originId} onChange={e => update({ originId: e.target.value })}>
           <option value="">{en.placeholder}</option>
-          {origins.map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
+          {origins.map(place => <option key={place.id} value={place.id}>{en[place.id]}</option>)}
         </select></label>
+        {trip.originId && origins.find(p => p.id === trip.originId)?.latitude === null && <small>{en.missing}</small>}
         <div className="times">
           <label>{en.from}<input required type="time" value={trip.startTime} onChange={e => update({ startTime: e.target.value })} /></label>
           <label>{en.until}<input required type="time" value={trip.endTime} onChange={e => update({ endTime: e.target.value })} /></label>
         </div>
         <Choices title={en.interests} options={themes} selected={trip.themes} onChange={values =>
           update({ themes: values, eventId: performance.themes.some(t => values.includes(t)) ? trip.eventId : null })} />
-        <Choices title={en.destinations} options={destinations} selected={trip.destinationIds}
-          onChange={destinationIds => update({ destinationIds })} />
+        <fieldset><legend>{en.destinations}</legend><div className="place-grid">
+          {destinations.map((place, index) => {
+            const checked = trip.destinationIds.includes(place.id)
+            return <label className="place-card" key={place.id}>
+              <span aria-hidden="true" className={'motif motif-' + place.id}>{motifs[index]}</span>
+              <strong>{en[place.id]}</strong><small>{place.themes.map(t => en[t]).join(' · ')}</small>
+              <span className="check-line"><input type="checkbox" checked={checked} onChange={() =>
+                update({ destinationIds: checked ? trip.destinationIds.filter(id => id !== place.id) : [...trip.destinationIds, place.id] })} />
+                {checked ? en.selected : en.select}</span>
+            </label>
+          })}
+        </div></fieldset>
+        <MapView places={mapPlaces} originIds={originIds} selectedIds={[trip.originId, ...trip.destinationIds]} labels={en} />
         <label className="return"><input type="checkbox" checked={trip.returnToOrigin}
           onChange={e => update({ returnToOrigin: e.target.checked })} />{en.returnTrip}</label>
-        <div className="actions"><button>{en.next}</button></div>
+        {error && <p role="alert">{en.invalid}</p>}<div className="actions"><button>{en.next}</button></div>
       </form>
     </section>}
     {screen === 'events' && <section className="planner">
       <button className="back" onClick={() => setScreen('planner')}>← {en.back}</button>
-      <h1>{en.events}</h1>
+      <small className="step">2 / 3</small><h1>{en.events}</h1>
       {matches ? <article className="event">
         {performance.demoOnly && <strong className="demo">{en.demo}</strong>}
-        <h2>{performance.name}</h2>
-        <p>{performance.location}<br />{performance.startTime}–{performance.endTime} · {en[performance.setting]}<br />
-          {performance.themes.map(theme => themeNames[theme]).join(', ')}</p>
+        <h2>{en.eventName}</h2>
+        <p>{en.venue}<br />{performance.startTime}–{performance.endTime} · {en[performance.setting]}<br />
+          {performance.themes.map(theme => en[theme]).join(', ')}</p>
         <p>{en.fictional}</p>
         <div className="actions"><button onClick={() => finish(performance.id)}>{en.add}</button>
           <button className="secondary" onClick={() => finish(null)}>{en.skip}</button></div>
@@ -84,10 +115,11 @@ export default function App() {
     </section>}
     {screen === 'summary' && <section className="planner">
       <button className="back" onClick={() => setScreen('events')}>← {en.back}</button>
-      <h1>{en.summary}</h1>
-      <p>{origins.find(place => place.id === trip.originId)?.name}<br />{trip.startTime}–{trip.endTime}</p>
-      <ul>{destinations.filter(place => trip.destinationIds.includes(place.id)).map(place => <li key={place.id}>{place.name}</li>)}</ul>
-      {trip.eventId === performance.id ? <p><strong>{en.event}</strong><br />{performance.name} ({en.demo})</p> : <p>{en.noEvent}</p>}
+      <small className="step">3 / 3</small><h1>{en.summary}</h1>
+      <p>{en[trip.originId]}<br />{trip.startTime}–{trip.endTime}</p>
+      <ul>{destinations.filter(place => trip.destinationIds.includes(place.id)).map(place => <li key={place.id}>{en[place.id]}</li>)}</ul>
+      {trip.eventId === performance.id ? <p><strong>{en.event}</strong><br />{en.eventName} ({en.demo})</p> : <p>{en.noEvent}</p>}
     </section>}
   </main>
 }
+

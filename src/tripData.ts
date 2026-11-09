@@ -5,7 +5,7 @@ export const themeNames = {
 export type Theme = keyof typeof themeNames
 type Setting = 'indoor' | 'outdoor'
 
-interface Place {
+export interface Place {
   id: string
   name: string
   latitude: number | null
@@ -17,9 +17,21 @@ interface Place {
   source: string
 }
 
+type Location = { latitude: number; longitude: number; source: string }
+const locations: Partial<Record<string, Location>> = {
+  cheomseongdae: { latitude: 35.834722, longitude: 129.219, source: 'https://en.wikipedia.org/wiki/Cheomseongdae' },
+  daereungwon: { latitude: 35.838, longitude: 129.212, source: 'https://en.wikipedia.org/wiki/Daereungwon' },
+  hwangnidan: { latitude: 35.8375, longitude: 129.2097, source: 'https://en.wikipedia.org/wiki/Hwangnidan-gil' },
+  donggung: { latitude: 35.83470, longitude: 129.22644, source: 'https://kr.geoview.info/gyeongju_donggunggwa_wolji%2C477417220w' },
+  museum: { latitude: 35.8289833, longitude: 129.228361, source: 'https://en.wikipedia.org/wiki/Gyeongju_National_Museum' },
+  bulguksa: { latitude: 35.790215, longitude: 129.332059, source: 'https://buddhaland.dongguk.edu/article?dataId=KBA0002625' },
+  seokguram: { latitude: 35.796264, longitude: 129.349950, source: 'https://buddhaland.dongguk.edu/article?dataId=KBA0002625' },
+  bomun: { latitude: 35.84363, longitude: 129.28702, source: 'https://mapcarta.com/N12908974229' },
+  station: { latitude: 35.79833, longitude: 129.13889, source: 'https://en.wikipedia.org/wiki/Gyeongju_station' },
+}
 function place(id: string, name: string, themes: Theme[], setting: Setting, estimatedStayMinutes: number): Place {
   return { id, name, themes, setting, estimatedStayMinutes, latitude: null, longitude: null,
-    source: 'Developer-defined demo data; coordinates unverified.' }
+    source: 'Developer-defined demo data; coordinates unverified.', ...locations[id] }
 }
 
 export const destinations = [
@@ -54,3 +66,4 @@ export interface TripPreferences {
   returnToOrigin: boolean
   eventId: string | null
 }
+
