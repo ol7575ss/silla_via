@@ -9,6 +9,7 @@ import { InstallHint } from './InstallHint'
 import { LivePanel } from './LivePanel'
 import { TourPanel } from './TourPanel'
 import type { TourPlace } from './tourData'
+import { RoutingPanel } from './RoutingPanel'
 import './App.css'
 
 type ChoiceProps<T extends string> = {
@@ -131,6 +132,7 @@ export default function App() {
       {live && tourEvent && <p>{en.event} · <span lang="ko">{tourEvent.name}</span> · {en.tourUnscheduled}</p>}
       <JourneyResult key={live ? 'live' : 'demo'} live={live} forecastRisk={forecastRisk} trip={live ? liveTrip : trip} labels={en} edit={() => setScreen('planner')} />
     </section>}
+    {screen === 'summary' && live && <RoutingPanel labels={en} language={language} />}
     <details><summary>{en.dataMode} · {live ? 'LIVE' : 'DEMO'}</summary>
       <label><input type="checkbox" checked={live} onChange={e => setLive(e.target.checked)} /> LIVE</label>
     </details>
@@ -139,6 +141,7 @@ export default function App() {
     <InstallHint labels={en} visible={screen === 'welcome'} />
   </main>
 }
+
 
 
 
