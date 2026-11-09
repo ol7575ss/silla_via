@@ -26,3 +26,8 @@ legend { padding: 0; margin-bottom: 9px; }
 .choices label { padding: 8px 12px; border: 1px solid #bfcec6; border-radius: 12px; }
 .choices label:has(:checked) { background: #e1eee5; border-color: #247365; }
 input[type=checkbox] { accent-color: #14594f; margin: 0; }
+.planner select { display: block; width: 100%; margin-top: 6px; padding: 11px; border: 1px solid #acbcb4; border-radius: 8px; background: white; color: inherit; font: inherit; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.event { padding: 20px; border: 1px solid #bfcec6; border-radius: 12px; }
+.demo { color: #14594f; font-size: .8rem; letter-spacing: .08em; }
+.secondary { background: #e1eee5; color: #14594f; }
