@@ -138,4 +138,11 @@ export default {
   openKakao: "カカオマップで経路を開く",
   routeEmpty: "選択した区間と移動手段の経路が見つかりません。",
   routeQuota: "カカオマップの利用上限に達しました。",
+  busStops: "慶州のバス停",
+  stopName: "停留所名",
+  searchStops: "停留所を検索",
+  stopRoutes: "経由路線・選択すると詳細を表示します",
+  busRegion: "このTAGOサービスの対応都市に慶州市がありません。",
+  busInvalid: "検索条件を確認してください。",
+  apiLimit: "利用上限に達しました。時間をおいてお試しください。",
 }

@@ -33,11 +33,13 @@ export async function onRequestGet({ request, env, waitUntil }: Context) {
       pageNo: '1', numOfRows: '500', base_date: base.date, base_time: base.time, nx: '100', ny: '91' }).toString()
     const upstream = await fetch(url, { signal: AbortSignal.timeout(12000), redirect: 'error' })
     const body = await upstream.text()
+    if (upstream.status === 429 || /LIMITED_NUMBER_OF_SERVICE_REQUESTS/.test(body)) return failure('apiLimit', 429)
     if (upstream.status === 401 || upstream.status === 403 || /SERVICE_KEY|ACCESS_DENIED|UNREGISTERED_IP/i.test(body)) return failure('apiAuth')
     if (!upstream.ok) return failure('apiFailed')
     const payload = JSON.parse(body).response
     const code = String(payload?.header?.resultCode)
     if (['20','30','31','32','33'].includes(code)) return failure('apiAuth')
+    if (code === '22') return failure('apiLimit', 429)
     if (code === '03') return failure('apiEmpty', 404)
     if (code !== '00') return failure('apiFailed')
     const items: Item[] = payload.body?.items?.item
@@ -67,4 +69,5 @@ export async function onRequestGet({ request, env, waitUntil }: Context) {
     return response
   } catch { return failure('apiFailed') }
 }
+
 

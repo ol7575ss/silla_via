@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { Forecast, BusArrivals } from './liveData'
+import { BusPanel } from './BusPanel'
+import type { Forecast } from './liveData'
 import type { Language, Messages } from './i18n'
 
-const errors = ['apiKey', 'apiFailed', 'apiAuth', 'apiEmpty', 'busUnsupported', 'busConfig']
+const errors = ['apiKey', 'apiFailed', 'apiAuth', 'apiEmpty', 'apiLimit']
 function useLiveData<T>(path: string, refresh: number) {
   const [result, setResult] = useState<{ data?: T; error?: string }>({})
   useEffect(() => {
@@ -27,7 +28,6 @@ export function LivePanel({ labels, language, start, end, onRisk }: {
 }) {
   const [refresh, setRefresh] = useState(0)
   const weather = useLiveData<Forecast>('/api/weather', refresh)
-  const bus = useLiveData<BusArrivals>('/api/bus', refresh)
   const now = new Date(Date.now() + 9 * 3600000).toISOString()
   const today = now.slice(0,10).replaceAll('-', '')
   const hour = now.slice(11,13) + '00'
@@ -56,13 +56,9 @@ export function LivePanel({ labels, language, start, end, onRisk }: {
         </p>)}
         <p>— · {labels.unknownValue}</p>
       </details></> : <p role="status">{labels[weather.error ?? 'loadingApi']}</p>}
-    <h2>{labels.busArrivals}</h2>
-    {bus.data ? <>
-      <p><a href={bus.data.source}>TAGO</a> · {stamp(bus.data.fetchedAt)}</p>
-      {bus.data.arrivals.length ? <ul>{bus.data.arrivals.map((a,i) =>
-        <li key={i}>{a.stop.name} · {labels.bus} {a.route} · {Math.ceil(a.seconds / 60)} {labels.unit}</li>)}</ul> : <p>{labels.apiEmpty}</p>}
-    </> : <p role="status">{labels[bus.error ?? 'loadingApi']}</p>}
     <button type="button" className="secondary" onClick={() => setRefresh(n => n + 1)}>{labels.refreshApi}</button>
+    <BusPanel labels={labels} language={language} />
   </section>
 }
+
 

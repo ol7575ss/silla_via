@@ -23,8 +23,16 @@ export interface BusStop {
   longitude: number | null
 }
 
-export interface BusArrivals {
-  source: string
+export interface BusItem {
+  id: string
+  name: string
+  start?: string
+  end?: string
+  stop?: string
+  seconds?: number
+}
+export interface BusPage {
+  items: BusItem[]
   fetchedAt: string
-  arrivals: { stop: BusStop; route: string; seconds: number }[]
+  more: boolean
 }

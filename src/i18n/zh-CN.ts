@@ -138,4 +138,11 @@ export default {
   openKakao: "在 KakaoMap 中打开路线",
   routeEmpty: "未找到所选区间和交通方式的路线。",
   routeQuota: "KakaoMap 查询已达上限。",
+  busStops: "庆州公交站",
+  stopName: "站点名称",
+  searchStops: "搜索站点",
+  stopRoutes: "经停线路 · 选择线路查看详情",
+  busRegion: "此 TAGO 服务的支持城市列表中没有庆州。",
+  busInvalid: "请检查查询条件。",
+  apiLimit: "查询次数已达上限，请稍后重试。",
 }

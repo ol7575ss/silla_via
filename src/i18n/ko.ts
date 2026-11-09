@@ -138,4 +138,11 @@ export default {
   openKakao: "카카오맵에서 길찾기 열기",
   routeEmpty: "선택한 구간과 이동수단에 해당하는 경로가 없습니다.",
   routeQuota: "카카오맵 호출 한도에 도달했습니다.",
+  busStops: "경주시 버스정류소",
+  stopName: "정류소 이름",
+  searchStops: "정류소 검색",
+  stopRoutes: "경유 노선 · 선택하면 상세정보를 표시합니다",
+  busRegion: "이 TAGO 서비스의 지원 도시 목록에 경주시가 없습니다.",
+  busInvalid: "조회 조건을 확인해 주세요.",
+  apiLimit: "호출 한도를 초과했습니다. 나중에 다시 시도하세요.",
 }

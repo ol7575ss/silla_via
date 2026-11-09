@@ -14,6 +14,7 @@ export default defineConfig({
         { src: '/icons/demo-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
-    workbox: { navigateFallback: '/index.html', globPatterns: ['**/*.{html,js,css,png,svg}'] },
+    workbox: { navigateFallback: '/index.html', navigateFallbackDenylist: [/^\/api(?:\/|$)/], globPatterns: ['**/*.{html,js,css,png,svg}'] },
   })],
 })
+

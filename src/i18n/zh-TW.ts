@@ -138,4 +138,11 @@ export default {
   openKakao: "在 KakaoMap 開啟路線",
   routeEmpty: "找不到所選區間及交通方式的路線。",
   routeQuota: "KakaoMap 查詢已達上限。",
+  busStops: "慶州公車站",
+  stopName: "站點名稱",
+  searchStops: "搜尋站點",
+  stopRoutes: "行經路線 · 選取路線查看詳情",
+  busRegion: "此 TAGO 服務的支援城市清單中沒有慶州。",
+  busInvalid: "請確認查詢條件。",
+  apiLimit: "查詢已達上限，請稍後再試。",
 }

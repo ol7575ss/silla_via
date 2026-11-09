@@ -98,4 +98,11 @@ export const en = {
   openKakao: "Open directions in KakaoMap",
   routeEmpty: "No route found for this trip and mode.",
   routeQuota: "KakaoMap request limit reached.",
+  busStops: "Gyeongju bus stops",
+  stopName: "Stop name",
+  searchStops: "Search stops",
+  stopRoutes: "Routes serving this stop · Select a route for details",
+  busRegion: "Gyeongju is absent from this TAGO service’s city list.",
+  busInvalid: "Check the lookup parameters.",
+  apiLimit: "Request limit reached. Try again later.",
 }

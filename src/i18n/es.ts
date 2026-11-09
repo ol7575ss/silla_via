@@ -138,4 +138,11 @@ export default {
   openKakao: "Abrir la ruta en KakaoMap",
   routeEmpty: "No se encontró ruta para este trayecto y medio de transporte.",
   routeQuota: "Se ha alcanzado el límite de consultas de KakaoMap.",
+  busStops: "Paradas de Gyeongju",
+  stopName: "Nombre de la parada",
+  searchStops: "Buscar paradas",
+  stopRoutes: "Líneas de la parada · Selecciona una para ver detalles",
+  busRegion: "Gyeongju no figura entre las ciudades de este servicio TAGO.",
+  busInvalid: "Comprueba los parámetros de la consulta.",
+  apiLimit: "Se ha alcanzado el límite de consultas. Inténtalo más tarde.",
 }
