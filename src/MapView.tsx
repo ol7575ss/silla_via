@@ -8,10 +8,11 @@ interface MapProps {
   places: Place[]
   selectedIds: string[]
   originIds: string[]
+  visitOrder?: Record<string, number>
   labels: Messages
 }
 
-export function MapView({ places, selectedIds, originIds, labels }: MapProps) {
+export function MapView({ places, selectedIds, originIds, visitOrder, labels }: MapProps) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<LibreMap | null>(null)
   const [failed, setFailed] = useState(false)
@@ -58,14 +59,14 @@ export function MapView({ places, selectedIds, originIds, labels }: MapProps) {
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'place-pin' + (selected ? ' chosen' : '') + (origin ? ' origin-pin' : '')
-      button.textContent = selected ? '✓' : origin ? '⚑' : '●'
+      button.textContent = visitOrder?.[p.id] ? String(visitOrder[p.id]) : selected ? '✓' : origin ? '⚑' : '●'
       button.title = selected ? name + ' · ' + labels.selected : name
       button.setAttribute('aria-label', button.title)
       button.onclick = () => setActiveId(p.id)
       markers.push(new Marker({ element: button }).setLngLat([p.longitude, p.latitude]).addTo(instance))
     }
     return () => markers.forEach(marker => marker.remove())
-  }, [places, selectedIds, originIds, labels])
+  }, [places, selectedIds, originIds, visitOrder, labels])
 
   return <section className="map-panel">
     <h2>{labels.map}</h2>
@@ -76,3 +77,4 @@ export function MapView({ places, selectedIds, originIds, labels }: MapProps) {
       {selectedIds.includes(active.id) && ' · ' + labels.selected}</p>}
   </section>
 }
+

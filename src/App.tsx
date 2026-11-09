@@ -4,6 +4,7 @@ import type { Language } from './i18n'
 import { MapView } from './MapView'
 import { destinations, origins, performance, themeNames } from './tripData'
 import type { Theme, TripPreferences } from './tripData'
+import { JourneyResult } from './JourneyResult'
 import './App.css'
 
 type ChoiceProps<T extends string> = {
@@ -115,11 +116,10 @@ export default function App() {
     </section>}
     {screen === 'summary' && <section className="planner">
       <button className="back" onClick={() => setScreen('events')}>← {en.back}</button>
-      <small className="step">3 / 3</small><h1>{en.summary}</h1>
-      <p>{en[trip.originId]}<br />{trip.startTime}–{trip.endTime}</p>
-      <ul>{destinations.filter(place => trip.destinationIds.includes(place.id)).map(place => <li key={place.id}>{en[place.id]}</li>)}</ul>
-      {trip.eventId === performance.id ? <p><strong>{en.event}</strong><br />{en.eventName} ({en.demo})</p> : <p>{en.noEvent}</p>}
+      <small className="step">3 / 3</small><h1>{en.journey}</h1>
+      <JourneyResult trip={trip} labels={en} edit={() => setScreen('planner')} />
     </section>}
   </main>
 }
+
 

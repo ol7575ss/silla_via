@@ -53,3 +53,8 @@ button.origin-pin { border-radius: 6px; background: #816431; }
 button.place-pin.chosen { background: #006052; outline: 3px solid #f6cb69; z-index: 1; }
 .event { border-top: 3px solid #b69a64; background: #faf8ef; }
 @media(max-width: 420px) { .place-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+.timeline { margin: 20px 0; padding-left: 2.5rem; }
+.timeline li { padding: 0 0 22px 16px; border-left: 2px solid #b6c9bd; }
+.timeline li::marker { color: #225b52; font-weight: 700; }
+.timeline h2 { margin: 5px 0; font-size: 1.15rem; }
+.timeline small { color: #50665f; }
