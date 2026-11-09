@@ -16,7 +16,7 @@ const english = {
   selected: 'Selected', select: 'Select', eventName: performance.name, venue: performance.location,
 }
 
-export type Messages = typeof english & Record<string, string>
+export type Messages = Record<keyof typeof english, string> & Record<string, string>
 const base: Messages = { ...Object.fromEntries([...origins, ...destinations].map(p => [p.id, p.name])), ...english }
 const translations = { en: {}, ko, ja, es, 'zh-CN': simplified, 'zh-TW': traditional }
 export function messages(language: Language): Messages {

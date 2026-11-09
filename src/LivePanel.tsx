@@ -23,17 +23,16 @@ function useLiveData<T>(path: string, refresh: number) {
   return result
 }
 
-export function LivePanel({ labels, language, start, end, onRisk }: {
-  labels: Messages; language: Language; start: string; end: string; onRisk: (value: boolean) => void
+export function LivePanel({ labels, language, start, end, date, onRisk }: {
+  labels: Messages; language: Language; start: string; end: string; date: string; onRisk: (value: boolean) => void
 }) {
   const [refresh, setRefresh] = useState(0)
   const weather = useLiveData<Forecast>('/api/weather', refresh)
   const now = new Date(Date.now() + 9 * 3600000).toISOString()
   const today = now.slice(0,10).replaceAll('-', '')
   const hour = now.slice(11,13) + '00'
-  const times = weather.data?.hours.filter(h => h.fcstDate + h.fcstTime >= today + hour) ?? []
-  const date = now.slice(11,16) < end ? today : new Date(Date.now() + 33 * 3600000).toISOString().slice(0,10).replaceAll('-', '')
-  const risk = times.some(h => h.fcstDate === date && h.fcstTime < end.replace(':','') &&
+  const times = weather.data?.hours.filter(h => h.fcstDate === date.replaceAll('-', '') && h.fcstDate + h.fcstTime >= today + hour) ?? []
+  const risk = times.some(h => h.fcstTime < end.replace(':','') &&
     Number(h.fcstTime) + 100 > Number(start.replace(':','')) && ((h.POP ?? 0) > 0 || (h.PTY ?? 0) > 0))
   useEffect(() => { onRisk(risk); return () => onRisk(false) }, [onRisk, risk])
   const stamp = (value: string) => new Date(value).toLocaleString(language, { timeZone: 'Asia/Seoul' }) + ' KST'
@@ -49,16 +48,14 @@ export function LivePanel({ labels, language, start, end, onRisk }: {
     {weather.data ? <>
       <p><a href={weather.data.source}>KMA</a> · {stamp(weather.data.fetchedAt)}</p>
       {risk && <p>{labels.riskNotice}</p>}
-      <details><summary>{labels.hourly}</summary>
+      {!times.length && <p>{labels.forecastRange}</p>}<details><summary>{labels.hourly}</summary>
         {times.map(h => <p key={h.fcstDate + h.fcstTime}>
           <strong>{h.fcstDate.slice(0,4)}-{h.fcstDate.slice(4,6)}-{h.fcstDate.slice(6)} {h.fcstTime.slice(0,2)}:00 KST</strong><br />
-          {h.TMP ?? '—'} °C · {labels.prob} {h.POP ?? '—'}% · {h.PTY !== null ? labels[types[h.PTY]] ?? '—' : '—'} · {amount(h.PCP)}
+          {h.TMP ?? '—'} °C · {labels.prob} {h.POP ?? '—'}% · {h.PTY !== null ? labels[types[h.PTY]] ?? '—' : '—'} · {amount(h.PCP)} · {labels.skyLabel} {h.SKY === 1 ? '☀' : h.SKY === 3 ? '🌤' : h.SKY === 4 ? '☁' : '—'}
         </p>)}
         <p>— · {labels.unknownValue}</p>
       </details></> : <p role="status">{labels[weather.error ?? 'loadingApi']}</p>}
     <button type="button" className="secondary" onClick={() => setRefresh(n => n + 1)}>{labels.refreshApi}</button>
-    <BusPanel labels={labels} language={language} />
+    {import.meta.env.DEV && <details><summary>{labels.busStops}</summary><BusPanel labels={labels} /></details>}
   </section>
 }
-
-

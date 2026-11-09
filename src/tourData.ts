@@ -1,4 +1,4 @@
-export type TourKind = 'attractions' | 'culture' | 'festivals'
+export type TourKind = 'attractions' | 'culture' | 'festivals' | 'dining' | 'lodging'
 export interface TourPlace {
   source: 'TOUR_API'
   externalContentId: string

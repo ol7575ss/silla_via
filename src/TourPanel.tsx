@@ -10,7 +10,7 @@ function read(kind: TourKind, args: string) {
   if (existing) return existing
   const request = fetch(path).then(async res => {
     const body = await res.json()
-    if (!res.ok) throw new Error(['apiAuth','apiKey','tourQuota'].includes(body.error) ? body.error : 'apiFailed')
+    if (!res.ok) throw new Error(['apiAuth','apiKey','tourQuota','apiLimit'].includes(body.error) ? body.error : 'apiFailed')
     return body as TourPage
   }).finally(() => pending.delete(path))
   pending.set(path, request)
@@ -20,17 +20,21 @@ function read(kind: TourKind, args: string) {
 interface Props {
   labels: Messages; language: Language; eventsOnly: boolean; date: string
   setDate: (date: string) => void
+  savedPlaces: TourPlace[]; togglePlace: (place: TourPlace) => void
   selected: TourPlace | null; select: (place: TourPlace | null) => void
 }
-export function TourPanel({ labels, language, eventsOnly, date, setDate, selected, select }: Props) {
+export function TourPanel({ labels, language, eventsOnly, date, setDate, selected, select, savedPlaces, togglePlace }: Props) {
   const [tab, setTab] = useState<TourKind>('attractions')
   const kind = eventsOnly ? 'festivals' : tab
+  const [query,setQuery] = useState('')
+  const [keyword,setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [retry, setRetry] = useState(0)
   const [data, setData] = useState<TourPage | null>(null)
   const [active, setActive] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
+  const [detailAttempt, setDetailAttempt] = useState(0)
   const [detailError, setDetailError] = useState('')
   const [locatedOnly, setLocatedOnly] = useState(false)
   useEffect(() => {
@@ -38,7 +42,7 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
     setData(null); setError(''); setActive('')
     async function load() {
       let n = kind === 'festivals' ? 1 : page
-      const first = await read(kind, 'page=' + n)
+      const first = await read(kind, 'page=' + n + (keyword && kind !== 'festivals' ? '&q=' + encodeURIComponent(keyword) : ''))
       const items = [...first.items]
       let more = first.more
       while (kind === 'festivals' && more && !stale) {
@@ -50,7 +54,7 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
     }
     void load().catch(e => { if (!stale) setError(e instanceof Error && e.message in errorLabels ? e.message : 'apiFailed') })
     return () => { stale = true }
-  }, [kind, page, retry])
+  }, [kind, page, retry, keyword])
   useEffect(() => {
     let stale = false
     setDescription(''); setDetailError('')
@@ -58,7 +62,7 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
       if (!stale) setDescription(d.items[0]?.description ?? '')
     }).catch(e => { if (!stale) setDetailError(e instanceof Error && e.message in errorLabels ? e.message : 'apiFailed') })
     return () => { stale = true }
-  }, [active, kind])
+  }, [active, kind, detailAttempt])
   const day = date.replaceAll('-', '')
   const items = (data?.items ?? []).filter(p => kind !== 'festivals' ||
     (/^\d{8}$/.test(p.start) && /^\d{8}$/.test(p.end) && p.start <= day && day <= p.end))
@@ -69,7 +73,10 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
     <h2>{labels.tourTitle}</h2>
     {!eventsOnly && <label>{labels.tourCategory}<select value={tab} onChange={e => {
       setTab(e.target.value as TourKind); setPage(1); setActive(''); setData(null)
-    }}>{(['attractions','culture','festivals'] as const).map(k => <option key={k} value={k}>{labels[k]}</option>)}</select></label>}
+    }}>{(['attractions','culture','dining','lodging','festivals'] as const).map(k => <option key={k} value={k}>{labels[k]}</option>)}</select></label>}
+    {kind !== 'festivals' && <form onSubmit={e => {e.preventDefault();setKeyword(query.trim());setPage(1)}}>
+      <label>{labels.searchPlaces}<input value={query} maxLength={60} onChange={e => setQuery(e.target.value)} /></label>
+      <button>{labels.searchPlaces}</button></form>}
     {kind === 'festivals' && <label>{labels.tripDate}<input type="date" required value={date}
       onChange={e => { if (e.target.value) { setDate(e.target.value); setActive('') } }} /></label>}
     <label className="return"><input type="checkbox" checked={locatedOnly} onChange={e => setLocatedOnly(e.target.checked)} />{labels.withLocation}</label>
@@ -80,13 +87,15 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
       <div className="place-grid">{visible.map(p => <article className="place-card" key={p.externalContentId}>
         <button className="secondary" aria-pressed={active === p.externalContentId} onClick={() => setActive(p.externalContentId)}>
           <strong lang="ko">{p.name}</strong></button>
-        {p.imageUrl && <figure><img loading="lazy" src={p.imageUrl} alt="" /><figcaption>한국관광공사 · KOGL {p.license}</figcaption></figure>}
+        {p.imageUrl ? <figure><img loading="lazy" src={p.imageUrl} alt="" /><figcaption>한국관광공사 · KOGL {p.license}</figcaption></figure> : <div className="photo-placeholder" aria-hidden="true">✦</div>}
         <small lang="ko">{p.address}</small><small>{p.latitude !== null && p.longitude !== null ? p.latitude + ', ' + p.longitude : labels.missing}</small>
         {kind === 'festivals' && <><small>{p.start}–{p.end} · {labels.timeUnknown}</small>
           <label><input type="checkbox" checked={selected?.externalContentId === p.externalContentId}
             onChange={e => select(e.target.checked ? p : null)} /> {labels.add}</label></>}
+        {kind !== 'festivals' && <label className="return"><input type="checkbox" checked={savedPlaces.some(v => v.externalContentId === p.externalContentId)}
+          onChange={() => togglePlace(p)} />{labels.savePlace}</label>}
         {active === p.externalContentId && description && <p lang="ko">{description}</p>}
-        {active === p.externalContentId && detailError && <p role="status">{labels[detailError]}</p>}
+        {active === p.externalContentId && detailError && <p role="status">{labels[detailError]} <button onClick={() => setDetailAttempt(n => n+1)}>{labels.refreshApi}</button></p>}
       </article>)}</div>
       {kind !== 'festivals' && <div className="actions">
         {page > 1 && <button onClick={() => setPage(n => n - 1)}>← {labels.back}</button>}
@@ -97,4 +106,4 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
     {selected && <p>{labels.event} · <span lang="ko">{selected.name}</span> · {labels.tourUnscheduled}</p>}
   </section>
 }
-const errorLabels = { apiAuth: true, apiKey: true, tourQuota: true, apiFailed: true }
+const errorLabels = { apiLimit: true, apiAuth: true, apiKey: true, tourQuota: true, apiFailed: true }

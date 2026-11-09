@@ -29,7 +29,10 @@ export interface BusItem {
   start?: string
   end?: string
   stop?: string
-  seconds?: number
+  x?: string
+  y?: string
+  order?: string
+  type?: string
 }
 export interface BusPage {
   items: BusItem[]

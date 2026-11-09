@@ -34,9 +34,10 @@ const originIds = origins.map(p => p.id)
 const motifs = ['✦', '◒', '⌂', '≋', '◇', '⌂', '◈', '≋']
 
 export default function App() {
-  const [live, setLive] = useState(false)
+  const [live, setLive] = useState(true)
   const [date, setDate] = useState(() => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))
   const [tourEvent, setTourEvent] = useState<TourPlace | null>(null)
+  const [savedPlaces, setSavedPlaces] = useState<TourPlace[]>([])
   const [forecastRisk, setForecastRisk] = useState(false)
   const [language, setLanguage] = useState(savedLanguage)
   const en = useMemo(() => messages(language), [language])
@@ -53,6 +54,8 @@ export default function App() {
   })
   const liveTrip = useMemo(() => ({ ...trip, eventId: null }), [trip])
   const tourPanel = live && <TourPanel labels={en} language={language} eventsOnly={screen === 'events'}
+    savedPlaces={savedPlaces} togglePlace={p => setSavedPlaces(prev => prev.some(v => v.externalContentId === p.externalContentId)
+      ? prev.filter(v => v.externalContentId !== p.externalContentId) : [...prev,p])}
     date={date} setDate={value => { setDate(value); setTourEvent(null) }} selected={tourEvent} select={setTourEvent} />
   const matches = performance.themes.some(theme => trip.themes.includes(theme))
 
@@ -70,14 +73,21 @@ export default function App() {
       {Object.entries(languages).map(([id, name]) => <option lang={id} key={id} value={id}>{name}</option>)}
     </select></label></header>
     {screen === 'welcome' && <section className="welcome">
-      <div className="landscape" aria-hidden="true"><i /></div>
-      <div className="copy"><small className="location">{en.location}</small><h1>{en.title}</h1><p>{en.intro}</p>
+      <figure className="heritage-photo"><img src="/cheomseongdae.jpg" alt={en.cheomseongdae} />
+        <figcaption><a href="https://commons.wikimedia.org/wiki/File:Cheomseongdae_첨성대.jpg">© Mosbatho</a> ·
+          <a href="https://creativecommons.org/licenses/by/4.0/"> CC BY 4.0</a></figcaption></figure>
+      <div className="copy"><small className="location">{en.location}</small><h1>{en.discover}</h1><p>{en.intro}</p>
         <button onClick={() => setScreen('planner')}>{en.start} <span aria-hidden="true">→</span></button>
       </div>
     </section>}
     {screen === 'planner' && <section className="planner">
       <button className="back" onClick={() => setScreen('welcome')}>← {en.back}</button>
       <small className="step">1 / 3</small><h1>{en.planner}</h1>
+      {live && <label>{en.tripDate}<input type="date" value={date} onChange={e => {
+        if (e.target.value) { setDate(e.target.value); setTourEvent(null) }
+      }} /></label>}
+      {live && <details className="explore" open><summary>{en.exploreTour}</summary>{tourPanel}</details>}
+      {live && <h2>{en.timedPlaces}</h2>}
       <form noValidate onSubmit={e => {
         e.preventDefault()
         const invalid = !trip.originId || !trip.startTime || !trip.endTime
@@ -96,7 +106,8 @@ export default function App() {
         <Choices title={en.interests} options={themes} selected={trip.themes} onChange={values =>
           update({ themes: values, eventId: performance.themes.some(t => values.includes(t)) ? trip.eventId : null })} />
         <fieldset><legend>{en.destinations}</legend><div className="place-grid">
-          {destinations.map((place, index) => {
+          {[...destinations].sort((a,b) => Number(b.themes.some(t => trip.themes.includes(t))) - Number(a.themes.some(t => trip.themes.includes(t)))).map(place => {
+            const index = destinations.indexOf(place)
             const checked = trip.destinationIds.includes(place.id)
             return <label className="place-card" key={place.id}>
               <span aria-hidden="true" className={'motif motif-' + place.id}>{motifs[index]}</span>
@@ -129,21 +140,17 @@ export default function App() {
     {screen === 'summary' && <section className="planner">
       <button className="back" onClick={() => setScreen('events')}>← {en.back}</button>
       <small className="step">3 / 3</small><h1>{en.journey}</h1>
+      {live && savedPlaces.length > 0 && <aside className="trip-notes"><h2>{en.savedPlaces}</h2>
+        <ul>{savedPlaces.map(p => <li key={p.externalContentId} lang="ko">{p.name}</li>)}</ul></aside>}
       {live && tourEvent && <p>{en.event} · <span lang="ko">{tourEvent.name}</span> · {en.tourUnscheduled}</p>}
       <JourneyResult key={live ? 'live' : 'demo'} live={live} forecastRisk={forecastRisk} trip={live ? liveTrip : trip} labels={en} edit={() => setScreen('planner')} />
     </section>}
-    {screen === 'summary' && live && <RoutingPanel labels={en} language={language} />}
-    <details><summary>{en.dataMode} · {live ? 'LIVE' : 'DEMO'}</summary>
+    {import.meta.env.DEV && screen === 'summary' && live && <RoutingPanel labels={en} language={language} />}
+    {import.meta.env.DEV && <details><summary>{en.dataMode} · {live ? 'LIVE' : 'DEMO'}</summary>
       <label><input type="checkbox" checked={live} onChange={e => setLive(e.target.checked)} /> LIVE</label>
-    </details>
-    {screen !== 'events' && screen !== 'summary' && tourPanel}
-    {live && <LivePanel labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setForecastRisk} />}
+    </details>}
+
+    {screen === 'summary' && live && <LivePanel date={date} labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setForecastRisk} />}
     <InstallHint labels={en} visible={screen === 'welcome'} />
   </main>
 }
-
-
-
-
-
-

@@ -1,3 +1,4 @@
+import { diagnostic } from '../../server/portal'
 import { destinations, origins } from '../../src/tripData'
 import { routePairs } from '../../src/routing'
 import type { RouteStep, RouteSummary } from '../../src/routing'
@@ -50,9 +51,12 @@ export async function onRequestGet({ request, env }: { request: Request; env: { 
   try {
     const res = await fetch(url, { headers: { Authorization: 'KakaoAK ' + env.KAKAO_REST_API_KEY.trim() },
       redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000) })
+    const body = await res.json().catch(() => null) as Row | null
+    diagnostic('Kakao', walk ? 'walk' : 'publictraffic', res.status, String(body?.status ?? body?.code ?? ''),
+      Array.isArray(body?.routes) ? body.routes.length : body?.route ? 1 : null, !body, [401,403].includes(res.status))
     if (res.status === 429) return fail('routeQuota', 429)
     if ([401,403].includes(res.status)) return fail('apiAuth', 502)
-    const body = await res.json() as Row
+    if (!body) return fail('apiFailed',502)
     if (body.code === -10) return fail('routeQuota', 429)
     if (missing.has(String(body.status))) return fail('routeEmpty', 404)
     if (!res.ok || body.status !== 'OK') return fail('apiFailed', 502)
