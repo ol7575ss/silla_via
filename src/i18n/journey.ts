@@ -1,6 +1,13 @@
 import type { Language } from './index'
 
 const en = {
+    weatherUnavailable: 'Forecast unavailable. This itinerary uses the other travel conditions.',
+    rainShelter: 'Indoor visit during forecast rain.',
+    rainOutdoor: 'Rain is possible during this outdoor visit. Change your travel window or keep this stop.',
+    weatherAlternative: 'The updated forecast suggests this remaining itinerary.',
+
+    stepTimingNote: 'The plan uses Kakao’s total estimate once. Connecting walks may use separate walking estimates; waiting time is unconfirmed.',
+    busLineUnconfirmed: 'The city route number could not be matched uniquely.',
     pastForecast: 'Past dates are outside the current forecast.',
     vehicleLocation: 'Current bus locations',
     transitSnapshot: 'Transit estimates reflect the lookup time. Service for the chosen date and departure time is unconfirmed.',
@@ -31,6 +38,13 @@ const en = {
 export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
   en,
   'ko': {
+    weatherUnavailable: '예보를 불러오지 못해 다른 여행 조건으로 일정을 계산했습니다.',
+    rainShelter: '강수 예상 시간에 실내 방문을 배치했습니다.',
+    rainOutdoor: '이 야외 방문 시간에 강수 가능성이 있습니다. 여행 시간을 조정하거나 방문지를 유지할 수 있습니다.',
+    weatherAlternative: '새 예보를 반영한 남은 일정입니다. 적용할까요?',
+
+    stepTimingNote: '일정에는 카카오의 전체 예상시간을 한 번 반영합니다. 연결 도보는 별도 도보 조회값일 수 있으며 버스 대기시간은 미확인입니다.',
+    busLineUnconfirmed: '경주시 노선번호를 하나로 확인할 수 없습니다.',
     pastForecast: '지난 날짜는 현재 예보의 제공 범위를 벗어납니다.',
     vehicleLocation: '현재 버스 위치',
     transitSnapshot: '대중교통 소요시간은 조회 시점의 예상치입니다. 여행 날짜와 출발시각의 운행 여부는 미확인입니다.',
@@ -77,6 +91,13 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '보문호를 따라 걷는 호숫길',
   },
   'ja': {
+    weatherUnavailable: '予報を取得できないため、ほかの旅行条件で計算しました。',
+    rainShelter: '雨の予報に合わせた屋内訪問です。',
+    rainOutdoor: '屋外訪問中に雨の可能性があります。時間を調整するか、この訪問を維持できます。',
+    weatherAlternative: '最新予報に基づく残りの旅程です。適用しますか？',
+
+    stepTimingNote: '予定にはカカオの合計所要時間を一度反映します。接続徒歩は個別の経路推定を含みます。待ち時間は未確認です。',
+    busLineUnconfirmed: '市の路線番号を特定できません。',
     pastForecast: '過去の日付は現在の予報の対象外です。',
     vehicleLocation: '現在のバス位置',
     transitSnapshot: '公共交通の所要時間は照会時点の目安です。旅行日時の運行は未確認です。',
@@ -123,6 +144,13 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '普門湖畔の散策路。',
   },
   'es': {
+    weatherUnavailable: 'No se pudo cargar el pronóstico. Se usaron las demás condiciones del viaje.',
+    rainShelter: 'Visita interior durante el periodo de lluvia prevista.',
+    rainOutdoor: 'Podría llover durante esta visita al aire libre. Puedes ajustar el horario o mantener la visita.',
+    weatherAlternative: 'El nuevo pronóstico sugiere este itinerario para el resto del viaje.',
+
+    stepTimingNote: 'El plan utiliza una sola vez el total estimado por Kakao. Los enlaces a pie pueden proceder de consultas separadas. La espera es desconocida.',
+    busLineUnconfirmed: 'No se pudo identificar una única línea municipal.',
     pastForecast: 'Las fechas pasadas quedan fuera del pronóstico actual.',
     vehicleLocation: 'Ubicación actual de los autobuses',
     transitSnapshot: 'El transporte refleja la consulta actual. El servicio para la fecha y hora del viaje está sin confirmar.',
@@ -169,6 +197,13 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: 'Paseos junto al lago Bomun.',
   },
   'zh-CN': {
+    weatherUnavailable: '未能获取天气预报，已根据其他旅行条件计算。',
+    rainShelter: '降雨预报时段安排了室内参观。',
+    rainOutdoor: '此次户外参观期间可能降雨。可调整旅行时段或保留该站。',
+    weatherAlternative: '以下为根据最新预报调整的剩余行程。要应用吗？',
+
+    stepTimingNote: '行程仅计入一次 Kakao 总预计用时。衔接步行可能来自独立步行查询，等车时间未确认。',
+    busLineUnconfirmed: '无法唯一确定市内公交线路。',
     pastForecast: '当前预报不包含过去的日期。',
     vehicleLocation: '公交车当前位置',
     transitSnapshot: '公共交通用时为查询时的估计。旅行当日及出发时刻的班次尚未确认。',
@@ -215,6 +250,13 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '沿普门湖漫步的湖滨步道。',
   },
   'zh-TW': {
+    weatherUnavailable: '無法取得天氣預報，已依其他旅行條件計算。',
+    rainShelter: '預報降雨時段安排了室內參觀。',
+    rainOutdoor: '此次戶外參觀期間可能降雨。可調整旅行時段或保留此站。',
+    weatherAlternative: '以下為依最新預報調整的剩餘行程。要套用嗎？',
+
+    stepTimingNote: '行程僅計入一次 Kakao 預估總時間。銜接步行可能來自獨立步行查詢，候車時間未確認。',
+    busLineUnconfirmed: '無法唯一確認市區公車路線。',
     pastForecast: '目前預報不含過去的日期。',
     vehicleLocation: '公車目前位置',
     transitSnapshot: '大眾運輸時間為查詢時的估計。旅行當日及出發時刻的班次尚未確認。',

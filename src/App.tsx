@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { languages, messages, savedLanguage } from './i18n'
 import type { Language, Messages } from './i18n'
 import { destinations, origins, performance } from './tripData'
@@ -6,7 +6,6 @@ import type { Theme, TripPreferences } from './tripData'
 import { LiveJourney } from './LiveJourney'
 import { JourneyResult } from './JourneyResult'
 import { InstallHint } from './InstallHint'
-import { LivePanel } from './LivePanel'
 import { TourPanel } from './TourPanel'
 import type { TourPlace } from './tourData'
 import { RoutingPanel } from './RoutingPanel'
@@ -35,8 +34,9 @@ export default function App() {
   const [selectedStyles,setStyles] = useState<string[]>([])
   const [trip,setTrip] = useState<TripPreferences>({originId:'', destinationIds:[], themes:[], eventId:null, returnToOrigin:false,startTime:'10:00',endTime:'18:00'})
   const [saved,setSaved] = useState<TourPlace[]>([])
+  const [skippedEvents,setSkippedEvents]=useState(false)
+  const skipEmptyEvents=useCallback(()=>{setEvent(null);setSkippedEvents(true);go(5)},[])
   const [event,setEvent] = useState<TourPlace | null>(null)
-  const [risk,setRisk] = useState(false)
   const [error,setError] = useState('')
   const [showHotel,setShowHotel] = useState(false)
   const hotelId = hotel ? 'tour-' + hotel.externalContentId : ''
@@ -79,6 +79,7 @@ export default function App() {
       if (trip.startTime >= trip.endTime) return setError('timeRange')
     }
     if (step === 3 && trip.destinationIds.length + (live ? saved.length : 0) > 5) return setError('limit')
+    if(step===3) setSkippedEvents(false)
     go(step+1)
   }
   const panelProps = {labels:en,language,date,savedPlaces:saved,togglePlace:toggleSaved}
@@ -86,9 +87,9 @@ export default function App() {
     <header><strong><img src="/icons/demo.svg" alt="" />Silla Via</strong>
       <select className="locale" aria-label={en.language} value={language} onChange={e => chooseLanguage(e.target.value as Language)}>
         {Object.entries(languages).map(([id,name]) => <option key={id} value={id} lang={id}>{name}</option>)}</select></header>
-    {step === -1 && <section className="language-page"><h1>{en.language}</h1><div className="language-grid">
+    {step === -1 && <section className="language-page"><h1>{en.discover}</h1><p>{en.intro}</p><h2>{en.language}</h2><div className="language-grid">
       {Object.entries(languages).map(([id,name]) => <button key={id} lang={id} onClick={() => { chooseLanguage(id as Language); go(1) }}>{name}<span>→</span></button>)}</div></section>}
-    {step > 0 && <section className="flow"><nav><button className="back" onClick={() => go(step===1 ? -1 : step-1)}>← {en.back}</button><span>{step} / 5</span></nav>
+    {step > 0 && <section className="flow"><nav><button className="back" onClick={() => go(step===1 ? -1 : step===5 && skippedEvents ? 3 : step-1)}>← {en.back}</button><span>{step} / 5</span></nav>
       <progress aria-label={en[steps[step-1]]} value={step} max={5}/><h1>{en[steps[step-1]]}</h1>
       {step === 1 && <div className="style-grid">{styles.map(([key,icon]) => <button key={key} aria-pressed={selectedStyles.includes(key)} onClick={() => toggleStyle(key)}>
         <i aria-hidden="true">{icon}</i>{en[key]}<span aria-hidden="true">{selectedStyles.includes(key) ? '✓' : '+'}</span></button>)}</div>}
@@ -98,20 +99,20 @@ export default function App() {
           {hotel && <button className="secondary" onClick={() => chooseHotel(hotel)}>{en.noPreference}</button>}
           {showHotel && <TourPanel {...panelProps} eventsOnly={false} hotelOnly savedPlaces={hotel ? [hotel] : []} togglePlace={chooseHotel}/>}</div>}
         <label>{en.origin}<select value={trip.originId} onChange={e => update({originId:e.target.value})}><option value="">{en.placeholder}</option>{options}</select>{coordinates(trip.originId)}</label>
-        <label>{en.endPlace}<select value={end} onChange={e => setEnd(e.target.value)}><option value="">{en.noPreference}</option>{options}</select>{end && coordinates(end)}</label>{live && date && <LivePanel date={date} labels={en} language={language} start={trip.startTime} end={trip.endTime}/>}</div>}
-      {step === 3 && <>{live && <TourPanel key="must-visit" {...panelProps} eventsOnly={false}/>}<h2>{en.destinations}</h2><div className="local-list">{destinations.map(p => <button key={p.id} aria-pressed={trip.destinationIds.includes(p.id)} onClick={() => toggleLocal(p.id)}>
-        {p.id === 'cheomseongdae' && <img src="/cheomseongdae.jpg" alt=""/>}<strong>{en[p.id]}</strong><small>{p.themes.map(t => en[t]).join(' · ')}</small><span>{en[p.id+'Intro']}</span><b>{trip.destinationIds.includes(p.id) ? '✓' : '+'}</b></button>)}</div>
-        {!!(saved.length + trip.destinationIds.length) && <aside><h2>{en.selectedPlaces}</h2><div className="chips">
+        <label>{en.endPlace}<select value={end} onChange={e => setEnd(e.target.value)}><option value="">{en.noPreference}</option>{options}</select>{end && coordinates(end)}</label></div>}
+      {step === 3 && <>        {!!(saved.length + trip.destinationIds.length) && <aside><h2>{en.selectedPlaces}</h2><div className="chips">
           {trip.destinationIds.map(id => <button key={id} onClick={() => toggleLocal(id)}>{en[id]} ×</button>)}
-          {saved.map(p => <button key={p.externalContentId} onClick={() => toggleSaved(p)}>{p.name} ×</button>)}</div></aside>}
+          {saved.map(p => <button key={p.externalContentId} onClick={() => toggleSaved(p)}>{p.name} ×</button>)}</div></aside>}{live && <TourPanel key="must-visit" {...panelProps} eventsOnly={false}/>}<details><summary>{en.destinations}</summary><div className="local-list">{destinations.map(p => <button key={p.id} aria-pressed={trip.destinationIds.includes(p.id)} onClick={() => toggleLocal(p.id)}>
+        {p.id === 'cheomseongdae' && <img src="/cheomseongdae.jpg" alt=""/>}<strong>{en[p.id]}</strong><small>{p.themes.map(t => en[t]).join(' · ')}</small><span>{en[p.id+'Intro']}</span><b>{trip.destinationIds.includes(p.id) ? '✓' : '+'}</b></button>)}</div></details>
+
         </>}
-      {step === 4 && (live ? <TourPanel key="festivals" {...panelProps} eventsOnly themes={trip.themes} selected={event} select={p=>setEvent(previous=>previous?.externalContentId===p.externalContentId ? null : p)}/> : trip.themes.includes('history') ? <article className="event"><small>{en.demo}</small><h2>{en.eventName}</h2><p>{en.venue} · {performance.startTime}–{performance.endTime}</p><button aria-pressed={!!trip.eventId} onClick={() => update({eventId:trip.eventId ? null : performance.id})}>{trip.eventId ? en.selected : en.add}</button></article> : <p>{en.empty}</p>)}
-      {step < 5 && <div className="journey-actions">{error && <p role="alert">{en[error]}</p>}{step === 4 && <button className="secondary" onClick={() => {setEvent(null);update({eventId:null});go(5)}}>{en.skip}</button>}
+      {step === 4 && (live ? <TourPanel key="festivals" {...panelProps} eventsOnly onNoEvents={skipEmptyEvents} themes={trip.themes} selected={event} select={p=>setEvent(previous=>previous?.externalContentId===p.externalContentId ? null : p)}/> : trip.themes.includes('history') ? <article className="event"><small>{en.demo}</small><h2>{en.eventName}</h2><p>{en.venue} · {performance.startTime}–{performance.endTime}</p><button aria-pressed={!!trip.eventId} onClick={() => update({eventId:trip.eventId ? null : performance.id})}>{trip.eventId ? en.selected : en.add}</button></article> : <p>{en.empty}</p>)}
+      {step < 5 && <div className="journey-actions">{error && <p role="alert">{en[error]}</p>}{step === 3 && !saved.length && !trip.destinationIds.length && <button className="secondary" onClick={()=>{setSkippedEvents(false);go(4)}}>{en.skip}</button>}{step === 4 && <button className="secondary" onClick={() => {setEvent(null);update({eventId:null});go(5)}}>{en.skip}</button>}
         <button onClick={advance}>{step === 4 ? en.generate : en.next} →</button></div>}
       {step === 5 && <><p>{date} · {trip.startTime}–{trip.endTime}<br/>{labels[trip.originId]}{end && ' → '+labels[end]}{hotel && <><br/>{en.lodging} · {hotel.name}</>}</p>
-        {live ? <LiveJourney trip={trip} finalId={end} hotel={hotel} date={date} saved={saved} styles={selectedStyles} event={event} labels={labels} risk={risk} edit={()=>go(2)}/> :
+        {live ? <LiveJourney trip={trip} finalId={end} hotel={hotel} date={date} saved={saved} styles={selectedStyles} event={event} labels={labels} edit={()=>go(2)}/> :
           <JourneyResult hotel={hotel} trip={trip} finalId={end} labels={labels} edit={()=>go(2)} live={false} forecastRisk={false}/>}
-        {live && <LivePanel date={date} labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setRisk}/>}
+
         {tools && live && <RoutingPanel labels={en} language={language}/>}</>}
     </section>}
     {tools && step === 1 && <details><summary>{en.dataMode}</summary><label><input type="checkbox" checked={live} onChange={e => {setLive(e.target.checked);update({eventId:null})}}/> LIVE</label></details>}

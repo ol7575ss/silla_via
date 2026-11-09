@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { MapView } from './MapView'
 import type { Language, Messages } from './i18n'
 import type { TourKind, TourPage, TourPlace } from './tourData'
 
@@ -19,12 +18,13 @@ function read(kind: TourKind, args: string) {
 
 interface Props {
   labels: Messages; language: Language; eventsOnly: boolean; date: string
+  onNoEvents?: () => void
   themes?: readonly string[]
   hotelOnly?: boolean
   savedPlaces: TourPlace[]; togglePlace: (place: TourPlace) => void
   selected?: TourPlace | null; select?: (place: TourPlace) => void
 }
-export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, themes = [], selected, select, savedPlaces, togglePlace }: Props) {
+export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, themes = [], onNoEvents, selected, select, savedPlaces, togglePlace }: Props) {
   const [tab, setTab] = useState<TourKind>('attractions')
   const kind = eventsOnly ? 'festivals' : hotelOnly ? 'lodging' : tab
   const [query,setQuery] = useState('')
@@ -41,6 +41,7 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
   useEffect(() => {
     let stale = false
     setData(null); setError(''); setActive('')
+    if (!eventsOnly && !hotelOnly && !keyword) return
     async function load() {
       let n = kind === 'festivals' ? 1 : page
       const first = await read(kind, 'page=' + n + (keyword && kind !== 'festivals' ? '&q=' + encodeURIComponent(keyword) : ''))
@@ -55,7 +56,7 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
     }
     void load().catch(e => { if (!stale) setError(e instanceof Error && e.message in errorLabels ? e.message : 'apiFailed') })
     return () => { stale = true }
-  }, [kind, page, retry, keyword])
+  }, [kind, page, retry, keyword, eventsOnly, hotelOnly])
   useEffect(() => {
     let stale = false
     setDescription(''); setDetailError('')
@@ -67,6 +68,8 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
   const day = date.replaceAll('-', '')
   const items = (data?.items ?? []).filter(p => kind !== 'festivals' ||
     (/^\d{8}$/.test(p.start) && /^\d{8}$/.test(p.end) && p.start <= day && day <= p.end))
+  const noEvents=eventsOnly && data !== null && !error && items.length===0
+  useEffect(()=>{if(noEvents) onNoEvents?.()},[noEvents,onNoEvents])
   const visible = [...new Map(items.map(p=>[p.externalContentId,p])).values()]
   function toggleEvent(p: TourPlace) {
     select?.(p); setActive(p.externalContentId)
@@ -76,7 +79,6 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
     const score = (p:TourPlace) => themes.filter(key=>words[key]?.test(p.name)).length
     visible.sort((a,b)=>score(b)-score(a))
   }
-  const markers = visible.map(p => ({ ...p, id: 'tour-' + p.externalContentId }))
   const stamp = (s: string) => new Date(s).toLocaleString(language, { timeZone: 'Asia/Seoul' }) + ' KST'
   return <section className="event tour-panel">
     
@@ -87,7 +89,7 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
       <label>{labels.searchPlaces}<input value={query} maxLength={60} onChange={e => setQuery(e.target.value)} /></label>
       <button>{labels.searchPlaces}</button></form>}
     {error ? <p role="alert">{labels[error]} <button onClick={() => setRetry(n => n + 1)}>{labels.retryTravel}</button></p> :
-      !data ? <p role="status">{labels.loadingApi}</p> : <>
+      !data ? (eventsOnly || hotelOnly || keyword ? <p role="status">{labels.loadingApi}</p> : null) : <>
       <p><a href="https://www.data.go.kr/data/15101578/openapi.do">한국관광공사 TourAPI</a> · {stamp(data.fetchedAt)}</p>
       {!visible.length && <p>{labels[kind === 'festivals' ? 'noTourEvents' : 'apiEmpty']}</p>}
       <div className="place-grid">{visible.map(p => <article className="place-card" key={p.externalContentId} onClick={eventsOnly ? () => toggleEvent(p) : undefined}>
@@ -97,7 +99,7 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
         <small>{labels[kind]}</small><small lang="ko">{p.address}</small><small>{p.latitude !== null && p.longitude !== null ? p.latitude + ', ' + p.longitude : labels.missing}</small>
         {eventsOnly && <small>{p.start}–{p.end} · {labels.timeUnknown}</small>}
         {kind !== 'festivals' && <label className="return"><input type="checkbox" checked={savedPlaces.some(v => v.externalContentId === p.externalContentId)}
-          onChange={() => togglePlace(active === p.externalContentId && description ? {...p,description} : p)} />{labels.select}</label>}
+          onChange={() => togglePlace(active === p.externalContentId && description ? {...p,description} : p)} />{savedPlaces.some(v=>v.externalContentId===p.externalContentId) ? labels.selected : labels.add}</label>}
         {(active !== p.externalContentId || !description) && p.description && <p lang="ko">{p.description}</p>}
         {active === p.externalContentId && description && <p lang="ko">{description}</p>}
         {active === p.externalContentId && detailError && <p role="status">{labels.loadProblem} <button onClick={e => {e.stopPropagation(); setDetailAttempt(n => n+1)}}>{labels.retryTravel}</button></p>}
@@ -105,8 +107,7 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, theme
       {kind !== 'festivals' && <div className="actions">
         {page > 1 && <button onClick={() => setPage(n => n - 1)}>← {labels.back}</button>}
         {data.more && <button onClick={() => setPage(n => n + 1)}>{labels.next} →</button>}</div>}
-      {markers.some(p => p.latitude !== null && p.longitude !== null) &&
-        <MapView places={markers} selectedIds={active ? ['tour-' + active] : []} originIds={[]} labels={labels} />}
+
     </>}
     {eventsOnly && selected && <p>{labels.event} · <span lang="ko">{selected.name}</span></p>}
   </section>

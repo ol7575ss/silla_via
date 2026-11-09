@@ -153,3 +153,10 @@ summary { cursor:pointer; padding: 9px 0; color: #245a50; }
 @media(min-width:680px) { .style-grid,.local-list { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 .find-places { border:1px solid #c9cbbd; background:#fffdf7; border-radius:16px; padding:4px 16px; }
 .local-list button > span { font-size:.88rem; color:#52605d; line-height:1.5; }
+
+.leg-guide { margin-block: .65rem; border-inline-start: 2px solid #b79d69; padding-inline-start: .85rem; }
+.leg-guide > ol { padding-inline-start: 1.35rem; }
+.timeline .leg-guide li { border: 0; border-radius: 0; background: transparent; padding: .35rem 0; margin: 0; }
+.leg-guide li small { display: block; }
+button.place-pin.final-pin { background:#805c23; border-radius:6px; min-width:30px; width:auto; padding-inline:4px; }
+.trip-endpoint button { background:transparent; color:inherit; padding-inline:0; } .trip-endpoint.active button,.endpoint-active { outline:2px solid #87692f; }

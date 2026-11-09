@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BusLegInfo } from './BusLegInfo'
+import { LegGuide } from './LegGuide'
 import { MapView } from './MapView'
 import type { Messages } from './i18n'
-import type { RouteMode } from './routing'
+import type { Forecast } from './liveData'
+import { forecastHours, rainOverlap, weatherPolicy } from './weatherPolicy'
 import { prepare, calculate } from './algorithms/liveJourney'
 import type { Input, Prepared, Stop } from './algorithms/liveJourney'
 import { clock } from './algorithms/replanRemainingRoute'
 import type { Journey, Visit } from './algorithms/optimizeRoute'
 
-export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t,risk,edit}:Input & {labels:Messages;risk:boolean;edit:()=>void}) {
-  const [mode,setMode]=useState<RouteMode>('WALK')
+export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t,edit}:Input & {labels:Messages;edit:()=>void}) {
+  const mode='PUBLIC_TRANSIT' as const
+  const [latest,setLatest]=useState<Forecast|null>(null)
   const [attempt,retry]=useState(0)
   const [data,setData]=useState<Prepared|null>(null)
   const [problem,setProblem]=useState('')
@@ -20,17 +22,39 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
   const [kept,keep]=useState(false)
   useEffect(()=>{
     const controller=new AbortController()
-    setData(null);setProblem('');setDone([]);setRevised(null);keep(false);focus('');setTime(trip.startTime)
+    setData(null);setLatest(null);setProblem('');setDone([]);setRevised(null);keep(false);focus('');setTime(trip.startTime)
     void prepare({trip,date,finalId,hotel,saved,event,styles},mode,controller.signal).then(result=>{
       if(!controller.signal.aborted) setData(result)
-    }).catch(()=>{if(!controller.signal.aborted) setProblem('apiFailed')})
+    }).catch(e=>{if(!controller.signal.aborted) setProblem(e instanceof Error && e.message==='missing' ? 'missing':'apiFailed')})
     return ()=>controller.abort()
   },[trip,date,finalId,hotel,saved,event,styles,mode,attempt])
   const calculated=useMemo(()=>data ? calculate(data,trip) : null,[data,trip])
-  const controls=<div className="actions"><label>{t.routeMode}<select disabled={done.length>0} value={mode} onChange={e=>setMode(e.target.value as RouteMode)}>
-    <option value="WALK">{t.walk}</option><option value="PUBLIC_TRANSIT">{t.transit}</option></select></label>
-    <button className="secondary" disabled={done.length>0} onClick={()=>retry(n=>n+1)}>{t.retryTravel}</button></div>
-  if(!data) return <>{controls}<p role="status">{t[problem || 'loadingApi']}</p></>
+  useEffect(()=>{
+    if(!data) return
+    const controller=new AbortController()
+    let busy=false
+    async function refresh(){
+      if(busy || document.hidden) return
+      busy=true
+      try {
+        const response=await fetch('/api/weather',{signal:controller.signal})
+        if(response.ok) {
+          const next:Forecast=await response.json()
+          if(!controller.signal.aborted) setLatest(prev=>{
+            const previous=prev ?? data!.forecast
+            return previous && previous.baseDate+previous.baseTime >= next.baseDate+next.baseTime ? prev : next
+          })
+        }
+      } catch { /* Keep the last available forecast. */ }
+      finally {busy=false}
+    }
+    const timer=window.setInterval(refresh,weatherPolicy.refreshMinutes*60000)
+    document.addEventListener('visibilitychange',refresh)
+    return ()=>{controller.abort();window.clearInterval(timer);document.removeEventListener('visibilitychange',refresh)}
+  },[data])
+  useEffect(()=>{keep(false)},[latest])
+  const controls=problem || data && !calculated?.ok ? <button className="secondary" onClick={()=>retry(n=>n+1)}>{t.retryTravel}</button> : null
+  if(!data) return <>{controls}<p role="status">{t[problem || 'loadingApi']}</p>{problem && <button onClick={edit}>{t.editTrip}</button>}</>
   const initial=calculated
   const original=initial?.ok ? initial.journey:null
   const journey=revised ?? original
@@ -41,41 +65,53 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
   const issue=data.conflict || (initial && !initial.ok ? initial.reason : '')
   const duration=(n:number)=>n+' '+t.unit
   const mapPoints=[...new Map([data.origin,...visits,...(data.final?[data.final]:[])].map(p=>[p.id,p])).values()]
-  function leg(from:string,to:string) {
+  function leg(from:string,to:string,arrival?:number) {
     if (from===to) return null
     const key=from+'/'+to
     const r=data!.routes.get(key)
-    if (!r) return <small>{t[data!.issues.get(key) ?? 'unknownLeg']}</small>
-    return <small>{t[r.mode==='WALK'?'walk':'transit']} · {duration(Math.ceil(r.seconds/60))} · {r.meters} m
-      {r.transfers!==null && <> · {t.transfers} {r.transfers}</>}
-      {r.steps.filter(s=>s.vehicles.length || s.board || s.alight).map((s,i)=><span key={i}><br/>{[s.vehicles.join(', '),s.board,s.alight].filter(Boolean).join(' · ')}</span>)}
-      {[...new Set(r.steps.filter(s=>s.type==='BUS').flatMap(s=>s.vehicles))].map(line=><BusLegInfo key={key+'/'+line} line={line} labels={t}/>)}
-      <br/>{r.landingUrl ? <a href={r.landingUrl} target="_blank" rel="noreferrer">{t.openKakao}</a> : r.source} · <time dateTime={r.fetchedAt}>{new Date(r.fetchedAt).toLocaleString(document.documentElement.lang)}</time></small>
+    if (!r) {
+      const points=[data!.origin,...data!.visits,...(data!.final?[data!.final]:[])]
+      const start=points.find(p=>p.id===from), end=points.find(p=>p.id===to)
+      return <small>{start && name(start)} → {end && name(end)} · {t[data!.issues.get(key) ?? 'unknownLeg']}</small>
+    }
+    const origin=mapPoints.find(p=>p.id===from), destination=mapPoints.find(p=>p.id===to)
+    if(!origin || !destination) return null
+    const window=arrival===undefined ? undefined : clock(arrival-Math.ceil(r.seconds/60))+'–'+clock(arrival)
+    return <LegGuide key={key} route={r} from={{...origin,name:name(origin)}} to={{...destination,name:name(destination)}}
+      scheduled={arrival!==undefined} window={window} t={t} highlight={()=>focus(key)}/>
   }
-  function replan() {
-    const earliest=done.length ? clock(done[done.length-1].departure) : trip.startTime
-    if(!currentTime || currentTime<earliest || currentTime>=trip.endTime) {setProblem('timeRange');return}
-    const next=calculate(data!,trip,done.map(v=>v.placeId),currentTime,true)
-    if(!next?.ok) {setProblem(next && !next.ok ? next.reason:'unknownLeg');return}
-    setProblem('')
-    setRevised({...next.journey,travel:next.journey.travel+done.reduce((n,v)=>n+v.leg.durationMinutes,0),
-      sightseeing:next.journey.sightseeing+done.reduce((n,v)=>n+v.stay,0),visits:[...done,...next.journey.visits].map((v,i)=>({...v,order:i+1}))})
-  }
+  const forecast=latest ?? data.forecast
+  const hours=forecastHours(forecast,date)
+  const now=new Date(Date.now()+9*3600000).toISOString()
+  const resume=done.length && now.slice(0,10)===date && now.slice(11,16)>currentTime ? now.slice(11,16) : currentTime
+  const remaining=latest && hours.length>0 && journey && !kept ? calculate(data,trip,done.map(v=>v.placeId),resume,true,latest) : null
+  const alternative=remaining?.ok ? {...remaining.journey,
+    visits:[...done,...remaining.journey.visits].map((v,i)=>({...v,order:i+1})),
+    travel:remaining.journey.travel+done.reduce((n,v)=>n+v.leg.durationMinutes,0),
+    sightseeing:remaining.journey.sightseeing+done.reduce((n,v)=>n+v.stay,0)} : null
+  const changed=alternative && journey && (alternative.finish!==journey.finish || alternative.visits.length!==journey.visits.length ||
+    alternative.visits.some((v,i)=>v.placeId!==journey.visits[i]?.placeId || v.arrival!==journey.visits[i]?.arrival))
   return <>{controls}
-    {mode==='PUBLIC_TRANSIT' && <p>{t.transitSnapshot}</p>}
+    {forecast && hours.length>0 ? <small>{t.forecast} · KST {forecast.baseDate} {forecast.baseTime}</small> : <small>{forecast ? t.forecastRange : t.weatherUnavailable}</small>}
     {data.notices.map(key=><p role="status" key={key}>{t[key]}</p>)}
     {issue && <p role="alert">{t[issue==='missingLeg'?'unknownLeg':issue]}</p>}
+    {!journey && data.issues.size>0 && <ul>{[...data.issues].map(([key,reason])=><li key={key}>{key.split('/').map(id=>{
+      const p=mapPoints.find(point=>point.id===id);return p ? name(p) : id
+    }).join(' → ')} · {t[reason]}</li>)}</ul>}
     {!journey && visits.length>0 && <><p>{t.untimedPlaces}</p>
-      <details><summary>{t.routeMode}</summary>{visits.map(p=><p key={p.id}>{name(data.origin)} → {name(p)}<br/>{leg(data.origin.id,p.id)}</p>)}
-        {data.final && visits.filter(p=>p.id!==data.final?.id).map(p=><p key={p.id}>{name(p)} → {name(data.final!)}<br/>{leg(p.id,data.final!.id)}</p>)}</details></>}
-    <MapView places={mapPoints} selectedIds={active?[active]:[]} onPlaceClick={focus} originIds={[trip.originId]} visitOrder={order} labels={t}/>
-    <p>{t.origin} · {name(data.origin)} · {trip.startTime}</p>
+      <details><summary>{t.routeMode}</summary>{visits.map(p=><div key={p.id}>{leg(data.origin.id,p.id)}</div>)}
+        {data.final && visits.filter(p=>p.id!==data.final?.id).map(p=><div key={p.id}>{leg(p.id,data.final!.id)}</div>)}</details></>}
+    <MapView finalId={finalId} places={mapPoints} selectedIds={active ? active.split('/') : []} onPlaceClick={focus} originIds={[trip.originId]} visitOrder={order} labels={t}/>
+    <p className={active===trip.originId ? 'trip-endpoint active' : 'trip-endpoint'}><button onClick={()=>focus(trip.originId)}>{t.origin} · {name(data.origin)} · {trip.startTime}</button></p>
     <ol className="timeline">{visits.map((p,i)=>{
       const v=journey?.visits[i]
       const fixed=p.id===data.slot.id
       return <li key={p.id} className={active===p.id?'highlight':undefined}>
+        {v && leg(v.leg.fromPlaceId,p.id,v.arrival)}
         <small>{t[p.id===data.eventStop?.id?'event':data.required.includes(p.id)?'mustStop':'suggestedStop']}</small>
-        <h2><button onClick={()=>focus(p.id)} aria-pressed={active===p.id}>{name(p)}</button></h2>
+        {v && rainOverlap(hours,v.departure-v.stay,v.departure)>0 && p.setting!=='unknown' && <p>{t[p.setting==='indoor'?'rainShelter':'rainOutdoor']}</p>}
+        {!!p.themes.length && <small> · {p.themes.map(k=>t[k]).join(' · ')}</small>}
+        <h2><button onClick={()=>focus(p.id)} aria-pressed={active===p.id}>{v && v.order+'. '}{name(p)}</button></h2>
         {p.tour?.imageUrl && <figure><img src={p.tour.imageUrl} alt=""/><figcaption>한국관광공사 · KOGL {p.tour.license}</figcaption></figure>}
         {p.tour && <small>{p.tour.address} · <a href={p.source}>한국관광공사</a></small>}
         {p.tour?.description && <p lang="ko">{p.tour.description}</p>}
@@ -83,16 +119,17 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
         {p.hoursText && <p>{p.hoursText}</p>}
         {!fixed && <small>{p.openingHours ? p.openingHours.open+'–'+p.openingHours.close : t.unknownHours}</small>}
         {fixed ? <p>{data.slot.startTime}–{data.slot.endTime}</p> : p.id!==data.eventStop?.id && <p>{t.stayEstimate} · {duration(p.estimatedStayMinutes)}</p>}
-        {v && <><p>{t.arrival} {clock(v.arrival)} · {t.depart} {clock(v.departure)}{v.wait>0 && <> · {t.wait} {duration(v.wait)}</>}</p>{leg(v.leg.fromPlaceId,p.id)}
+        {v && <><p>{t.arrival} {clock(v.arrival)} · {t.depart} {clock(v.departure)}{v.wait>0 && <> · {t.wait} {duration(v.wait)}</>}</p>
           {i<done.length ? <p>{t.completed}</p> : i===done.length && <button className="secondary" onClick={()=>{setDone([...done,v]);setTime(clock(v.departure))}}>{t.completed}</button>}</>}
       </li>
     })}</ol>
-    {data.final && <p>{t.endPlace} · {name(data.final)} {journey && clock(journey.finish)}<br/>
-      {journey?.returnLeg && leg(journey.returnLeg.fromPlaceId,data.final.id)}</p>}
+    {data.final && <div>{journey?.returnLeg && leg(journey.returnLeg.fromPlaceId,data.final.id,journey.finish)}<button className={active===finalId?'secondary endpoint-active':'secondary'} onClick={()=>focus(finalId)}>{t.endPlace} · {name(data.final)} {journey && clock(journey.finish)}</button></div>}
     {journey && <p>{t.finishTime} · {clock(journey.finish)}</p>}
-    {risk && journey && !kept && <section className="weather-panel"><p>{t.rainPrompt}</p>
-      <label>{t.current} · {done.length ? name(byId.get(done[done.length-1].placeId)!) : name(data.origin)}<input type="time" value={currentTime} onChange={e=>setTime(e.target.value)}/></label>
-      <button onClick={replan}>{t.replanJourney}</button><button className="secondary" onClick={()=>keep(true)}>{t.keepJourney}</button></section>}
+    {remaining && !remaining.ok && <p role="status">{t[remaining.reason==='missingLeg'?'unknownLeg':remaining.reason]} · {t.unchanged}</p>}
+    {changed && alternative && <section><p>{t.weatherAlternative}</p>
+      <ol>{alternative.visits.slice(done.length).map(v=><li key={v.placeId}>{name(byId.get(v.placeId)!)} · {clock(v.arrival)}–{clock(v.departure)}</li>)}</ol>
+      <button onClick={()=>{setRevised(alternative);keep(true)}}>{t.replanJourney}</button>
+      <button className="secondary" onClick={()=>keep(true)}>{t.keepJourney}</button></section>}
     {revised && original && <details><summary>{t.original}</summary>{original.visits.map(v=><p key={v.placeId}>{name(byId.get(v.placeId)!)} · {clock(v.arrival)}–{clock(v.departure)}</p>)}</details>}
     {problem && <p role="alert">{t[problem]}</p>}
     <button onClick={edit}>{t.editTrip}</button></>

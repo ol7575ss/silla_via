@@ -19,11 +19,11 @@ export function BusLegInfo({ line, labels }: { line:string; labels:Messages }) {
       setResult({})
       const routes=await lookup('routes',line)
       const matches=routes.items.filter(r=>r.id && r.name.trim()===line)
-      if(routes.more || matches.length!==1) throw new Error('apiEmpty')
+      if(routes.more || matches.length!==1) throw new Error('busLineUnconfirmed')
       const data=await lookup('positions',matches[0].id)
       if(!controller.signal.aborted) setResult({data})
     }
-    void load().catch(e=>{if(!controller.signal.aborted) setResult({error:e instanceof Error && ['apiKey','apiLimit','apiAuth','apiEmpty'].includes(e.message)?e.message:'apiFailed'})})
+    void load().catch(e=>{if(!controller.signal.aborted) setResult({error:e instanceof Error && ['apiKey','apiLimit','apiAuth','busLineUnconfirmed'].includes(e.message)?e.message:'apiFailed'})})
     return ()=>controller.abort()
   },[line,open])
   return <span><button type="button" className="secondary" aria-expanded={open} onClick={()=>setOpen(!open)}>{labels.vehicleLocation} · {line}</button>

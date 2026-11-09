@@ -39,11 +39,13 @@ export async function onRequestGet({ request, env }: { request: Request; env: { 
   const from = params.get('from'), to = params.get('to'), mode = params.get('mode')
   if (!from || !to || from === to ||
     (mode !== 'WALK' && mode !== 'PUBLIC_TRANSIT')) return fail('apiFailed', 400)
+  const walkRequest = mode === 'WALK'
   const places = [...destinations, ...origins]
   function endpoint(id: string, prefix: string) {
     const local = places.find(p => p.id === id)
     if (local) return local
-    if (!/^tour-\d{1,12}$/.test(id)) return null
+    const access = walkRequest && id === (prefix === 'from' ? 'access-start' : 'access-end')
+    if (!access && !/^tour-\d{1,12}$/.test(id)) return null
     const x = params.get(prefix + 'X'), y = params.get(prefix + 'Y')
     if (!x?.trim() || !y?.trim()) return null
     const longitude = Number(x), latitude = Number(y)

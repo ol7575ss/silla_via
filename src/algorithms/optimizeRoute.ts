@@ -1,4 +1,6 @@
 import type { Place, TripPreferences } from '../tripData'
+import { rainOverlap } from '../weatherPolicy'
+import type { ForecastHour } from '../liveData'
 import type { TravelLeg } from '../travelTimes'
 
 interface EventSlot { id: string; startTime: string; endTime: string }
@@ -31,7 +33,7 @@ function minutes(time: string) {
   return h * 60 + m
 }
 
-export function optimizeRoute(trip: TripPreferences, places: Place[], event: EventSlot, legs: TravelLeg[], rain?: { returnPlaceId: string }, allowRecommendations = false): Result {
+export function optimizeRoute(trip: TripPreferences, places: Place[], event: EventSlot, legs: TravelLeg[], rain?: { returnPlaceId: string }, allowRecommendations = false, forecast:ForecastHour[] = []): Result {
   const gaps = new Map<string, [string, string]>()
   const fail = (reason: Problem): Result => ({ ok: false, reason, gaps: reason === 'missingLeg' ? [...gaps.values()] : [] })
   const start = minutes(trip.startTime)
@@ -58,7 +60,7 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
   }
   const score = (p: Place) => {
     const matches = p.themes.filter(theme => trip.themes.includes(theme)).length
-    if (!rain) return matches
+    if (!rain || forecast.length) return matches
     return p.setting === 'indoor' ? 10 + matches : p.setting === 'unknown' ? matches : matches - 6
   }
   const optional = places.filter(p => !required.has(p.id) && (allowRecommendations || score(p) > 0 || (rain && p.themes.some(t => trip.themes.includes(t)))) &&
@@ -68,6 +70,7 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
   const byId = new Map(places.map(p => [p.id, p]))
   let best: Journey | undefined
   let bestScore = -Infinity
+  let leastWalking: number | null = null
   let fewestTransfers = Infinity
   let earliestIndoor = Infinity
   let reachedStops = false
@@ -108,7 +111,11 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
       if (clock > end || (hours && clock > minutes(hours.close))) { timedOut = true; return }
       travel += leg.durationMinutes
       sightseeing += stay
-      if (place) affinity += score(place) + (allowRecommendations ? 1 : 0)
+      if (place) {
+        affinity += score(place) + (allowRecommendations ? 1 : 0)
+        const wet = rainOverlap(forecast,begins,clock)
+        if (wet && stay>0) affinity += (place.setting==='indoor' ? 6 : place.setting==='outdoor' ? -6 : 0)*wet/stay
+      }
       visits.push({ order: visits.length + 1, placeId: id, arrival, departure: clock, stay,
         wait: begins - arrival, leg, isEvent, hoursUnknown: !isEvent && !hours })
       from = id
@@ -124,14 +131,23 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
       if (clock > end) { lateReturn = true; return }
     }
     const indoorArrival = rain ? visits.find(v => byId.get(v.placeId)?.setting === 'indoor')?.arrival ?? Infinity : Infinity
-    const transfers = visits.reduce((sum,v) => sum + (v.leg.transfers ?? 0), returnLeg?.transfers ?? 0)
+    const itineraryLegs=visits.map(v=>v.leg)
+    if(returnLeg) itineraryLegs.push(returnLeg)
+    const transfers=itineraryLegs.reduce((sum,l)=>sum+(l.mode==='PUBLIC_TRANSIT' ? l.transfers ?? Infinity : 0),0)
+    const walking=itineraryLegs.every(l=>l.walkingMeters!=null || l.mode==='STAY')
+      ? itineraryLegs.reduce((sum,l)=>sum+(l.walkingMeters ?? 0),0) : null
     if (affinity === bestScore && indoorArrival > earliestIndoor) return
     if (affinity < bestScore) return
     if (best && affinity === bestScore && indoorArrival === earliestIndoor) {
       if (travel > best.travel) return
       if (travel === best.travel && transfers > fewestTransfers) return
-      if (travel === best.travel && transfers === fewestTransfers && clock >= best.finish) return
+      if (travel === best.travel && transfers === fewestTransfers) {
+        if (walking !== null && leastWalking !== null && walking !== leastWalking) {
+          if (walking > leastWalking) return
+        } else if (clock >= best.finish) return
+      }
     }
+    leastWalking = walking
     fewestTransfers = transfers
     earliestIndoor = indoorArrival
     bestScore = affinity

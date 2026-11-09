@@ -11,6 +11,7 @@ interface MapProps {
   places: (Pick<Place, 'id' | 'name' | 'latitude' | 'longitude'> & Partial<Pick<Place, 'themes'>>)[]
   onPlaceClick?: (id: string) => void
   selectedIds: string[]
+  finalId?: string
   originIds: string[]
   statuses?: Record<string, string>
   currentId?: string
@@ -18,7 +19,7 @@ interface MapProps {
   labels: Messages
 }
 
-export function MapView({ places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick }: MapProps) {
+export function MapView({ places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick, finalId }: MapProps) {
   const container = useRef<HTMLDivElement>(null)
   const [instance, setInstance] = useState<LibreMap | null>(null)
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -116,8 +117,8 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
       const name = labels[p.id] ?? p.name
       const button = document.createElement('button')
       button.type = 'button'
-      button.className = 'place-pin' + (selected ? ' chosen' : '') + (origin ? ' origin-pin' : '')
-      button.textContent = visitOrder?.[p.id] ? String(visitOrder[p.id]) : selected ? '✓' : origin ? '⚑' : '●'
+      button.className = 'place-pin' + (selected ? ' chosen' : '') + (origin ? ' origin-pin' : '') + (p.id === finalId ? ' final-pin' : '')
+      button.textContent = [origin ? '⚑' : '',visitOrder?.[p.id],p.id === finalId ? '⚐' : ''].filter(Boolean).join('') || (selected ? '✓' : '●')
       button.title = selected ? name + ' · ' + labels.selected : name
       const status = statuses?.[p.id]
       if (status) {
@@ -133,7 +134,7 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
       markers.push(new Marker({ element: button }).setLngLat([p.longitude, p.latitude]).addTo(instance))
     }
     return () => markers.forEach(marker => marker.remove())
-  }, [instance, places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick])
+  }, [instance, places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick, finalId])
 
   return <section className="map-panel">
     <h2>{labels.map}</h2>
@@ -142,7 +143,7 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
     {phase === 'error' && <div role="status"><p>{labels.mapError}</p>
       <button type="button" onClick={() => setAttempt(n => n + 1)}>{labels.mapRetry}</button></div>}
     {active && <p aria-live="polite"><strong>{labels[active.id] ?? active.name}</strong>
-      {' · '}{originIds.includes(active.id) ? labels.origin : active.themes?.map(t => labels[t]).join(' · ')}
+      {' · '}{[originIds.includes(active.id) && labels.origin,active.id===finalId && labels.endPlace,active.themes?.map(t => labels[t]).join(' · ')].filter(Boolean).join(' · ')}
       {statuses?.[active.id] && ' · ' + labels[statuses[active.id]]}{active.id === currentId && ' · ' + labels.current}
       {selectedIds.includes(active.id) && ' · ' + labels.selected}</p>}
   </section>
