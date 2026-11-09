@@ -92,4 +92,8 @@ export default {
   original: "최초 일정",
   unchanged: "현재 일정이 그대로 유지됩니다.",
   omitRequired: "다음 필수 관광지 제외에 동의",
+  mapLoading: "지도를 불러오는 중…",
+  mapRetry: "지도 다시 시도",
+  installApp: "홈 화면에 Silla Via 추가",
+  iosInstall: "Safari에서 공유를 누른 뒤 ‘홈 화면에 추가’와 ‘추가’를 차례로 선택하세요.",
 }

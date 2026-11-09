@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Map as LibreMap, Marker, NavigationControl, LngLatBounds } from 'maplibre-gl'
+import { Map as LibreMap, Marker, NavigationControl, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Messages } from './i18n'
 import type { Place } from './tripData'
+
+setWorkerUrl(workerUrl)
 
 interface MapProps {
   places: Place[]
@@ -16,41 +19,93 @@ interface MapProps {
 
 export function MapView({ places, selectedIds, originIds, visitOrder, statuses, currentId, labels }: MapProps) {
   const container = useRef<HTMLDivElement>(null)
-  const map = useRef<LibreMap | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [instance, setInstance] = useState<LibreMap | null>(null)
+  const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [attempt, setAttempt] = useState(0)
   const [activeId, setActiveId] = useState('')
   const active = places.find(p => p.id === activeId)
 
   useEffect(() => {
-    if (!container.current) return
-    let instance: LibreMap
-    try {
-      instance = new LibreMap({
-        container: container.current, center: [129.219, 35.835], zoom: 12,
-        style: 'https://tiles.openfreemap.org/styles/liberty',
-        locale: {
-          'Map.Title': labels.map, 'NavigationControl.ZoomIn': labels.zoomIn,
-          'NavigationControl.ZoomOut': labels.zoomOut, 'AttributionControl.ToggleAttribution': labels.attribution,
-        },
-      })
-    } catch {
-      setFailed(true)
-      return
+    const host = container.current
+    if (!host) return
+    let map: LibreMap | undefined
+    let timeout: number
+    let stopped = false
+    let ready = false
+    let reported = false
+    setPhase('loading')
+    function fail(reason: string) {
+      if (stopped || reported) return
+      reported = true
+      console.warn('[Silla Via / MapLibre]', reason)
+      setPhase('error')
     }
-    map.current = instance
-    instance.addControl(new NavigationControl({ showCompass: false }))
-    const bounds = new LngLatBounds()
-    for (const p of places) {
-      if (p.longitude !== null && p.latitude !== null) bounds.extend([p.longitude, p.latitude])
+    function resize() {
+      if (stopped || !host || !host.clientWidth || !host.clientHeight) return
+      if (map) { map.resize(); return }
+      if (reported) return
+      try {
+        map = new LibreMap({
+          container: host, center: [129.219, 35.835], zoom: 12,
+          style: 'https://tiles.openfreemap.org/styles/liberty',
+        })
+        map.on('error', ({ error }) => {
+          if (ready) return
+          const message = error.message ?? ''
+          const category = /worker/i.test(message) ? 'worker' : /webgl/i.test(message) ? 'WebGL' : 'style or resource'
+          const status = /\b[45]\d\d\b/.exec(message)?.[0] ?? ''
+          fail(category + ' load failed ' + status)
+        })
+        map.on('load', () => {
+          if (stopped) return
+          ready = true
+          window.clearTimeout(timeout)
+          setPhase('ready')
+        })
+        map.addControl(new NavigationControl({ showCompass: false }))
+        setInstance(map)
+        timeout = window.setTimeout(() => fail('initial load timed out'), 30000)
+      } catch {
+        fail('map initialization failed; check WebGL support')
+      }
     }
-    if (!bounds.isEmpty()) instance.fitBounds(bounds, { padding: 46, maxZoom: 15, duration: 0 })
-    instance.on('error', () => setFailed(true))
-    instance.on('load', () => setFailed(false))
-    return () => { instance.remove(); map.current = null }
-  }, [places, labels])
+    const observer = new ResizeObserver(resize)
+    observer.observe(host)
+    return () => {
+      stopped = true
+      observer.disconnect()
+      window.clearTimeout(timeout)
+      map?.remove()
+      setInstance(null)
+    }
+  }, [attempt])
 
   useEffect(() => {
-    const instance = map.current
+    if (!instance) return
+    const host = instance.getContainer()
+    instance.getCanvas().setAttribute('aria-label', labels.map)
+    for (const [selector, title] of [
+      ['.maplibregl-ctrl-zoom-in', labels.zoomIn], ['.maplibregl-ctrl-zoom-out', labels.zoomOut],
+      ['.maplibregl-ctrl-attrib-button', labels.attribution],
+    ]) {
+      const control = host.querySelector(selector)
+      control?.setAttribute('title', title)
+      control?.setAttribute('aria-label', title)
+    }
+  }, [instance, labels])
+
+  const located = places.filter(p => p.longitude !== null && p.latitude !== null)
+  const selected = located.filter(p => selectedIds.includes(p.id))
+  const bounds = new LngLatBounds()
+  for (const p of selected.length ? selected : located) bounds.extend([p.longitude!, p.latitude!])
+  const frame = bounds.isEmpty() ? '' : bounds.toArray().flat().join(',')
+  useEffect(() => {
+    if (!instance || !frame) return
+    const [west, south, east, north] = frame.split(',').map(Number)
+    instance.fitBounds([[west, south], [east, north]], { padding: 40, maxZoom: 15, duration: 0 })
+  }, [instance, frame])
+
+  useEffect(() => {
     if (!instance) return
     const markers: Marker[] = []
     for (const p of places) {
@@ -77,17 +132,20 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
       markers.push(new Marker({ element: button }).setLngLat([p.longitude, p.latitude]).addTo(instance))
     }
     return () => markers.forEach(marker => marker.remove())
-  }, [places, selectedIds, originIds, visitOrder, statuses, currentId, labels])
+  }, [instance, places, selectedIds, originIds, visitOrder, statuses, currentId, labels])
 
   return <section className="map-panel">
     <h2>{labels.map}</h2>
     <div className="map-canvas" ref={container} />
-    {failed && <p role="status">{labels.mapError}</p>}
+    {phase === 'loading' && <p role="status">{labels.mapLoading}</p>}
+    {phase === 'error' && <div role="status"><p>{labels.mapError}</p>
+      <button type="button" onClick={() => setAttempt(n => n + 1)}>{labels.mapRetry}</button></div>}
     {active && <p aria-live="polite"><strong>{labels[active.id] ?? active.name}</strong>
       {' · '}{originIds.includes(active.id) ? labels.origin : active.themes.map(t => labels[t]).join(' · ')}
       {statuses?.[active.id] && ' · ' + labels[statuses[active.id]]}{active.id === currentId && ' · ' + labels.current}
       {selectedIds.includes(active.id) && ' · ' + labels.selected}</p>}
   </section>
 }
+
 
 

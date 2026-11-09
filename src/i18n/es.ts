@@ -92,4 +92,8 @@ export default {
   original: "Itinerario original",
   unchanged: "Se mantiene el itinerario actual.",
   omitRequired: "Permitir que se omitan estas visitas obligatorias",
+  mapLoading: "Cargando el mapa…",
+  mapRetry: "Volver a cargar el mapa",
+  installApp: "Añadir Silla Via a la pantalla de inicio",
+  iosInstall: "En Safari, toca Compartir, selecciona Añadir a pantalla de inicio y toca Añadir.",
 }

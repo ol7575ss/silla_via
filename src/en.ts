@@ -52,4 +52,8 @@ export const en = {
   original: "Original itinerary",
   unchanged: "The current itinerary is unchanged.",
   omitRequired: "Allow removal of these required stops",
+  mapLoading: "Loading map…",
+  mapRetry: "Retry map",
+  installApp: "Add Silla Via to Home Screen",
+  iosInstall: "In Safari, tap Share, then Add to Home Screen and Add.",
 }

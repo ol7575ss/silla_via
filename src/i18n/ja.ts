@@ -92,4 +92,8 @@ export default {
   original: "元の旅程",
   unchanged: "現在の旅程を維持します。",
   omitRequired: "次の必須訪問先の除外を許可",
+  mapLoading: "地図を読み込み中…",
+  mapRetry: "地図を再読み込み",
+  installApp: "Silla Viaをホーム画面に追加",
+  iosInstall: "Safariで共有ボタンをタップし、「ホーム画面に追加」、「追加」の順に選択してください。",
 }

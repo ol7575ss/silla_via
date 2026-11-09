@@ -92,4 +92,8 @@ export default {
   original: "原始行程",
   unchanged: "目前行程維持不變。",
   omitRequired: "同意移除下列必遊景點",
+  mapLoading: "正在載入地圖…",
+  mapRetry: "重新載入地圖",
+  installApp: "將 Silla Via 加入主畫面",
+  iosInstall: "在 Safari 中點選「分享」，再選擇「加入主畫面」和「新增」。",
 }

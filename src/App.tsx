@@ -5,6 +5,7 @@ import { MapView } from './MapView'
 import { destinations, origins, performance, themeNames } from './tripData'
 import type { Theme, TripPreferences } from './tripData'
 import { JourneyResult } from './JourneyResult'
+import { InstallHint } from './InstallHint'
 import './App.css'
 
 type ChoiceProps<T extends string> = {
@@ -119,7 +120,9 @@ export default function App() {
       <small className="step">3 / 3</small><h1>{en.journey}</h1>
       <JourneyResult trip={trip} labels={en} edit={() => setScreen('planner')} />
     </section>}
+    <InstallHint labels={en} visible={screen === 'welcome'} />
   </main>
 }
+
 
 

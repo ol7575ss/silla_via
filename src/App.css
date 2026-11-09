@@ -46,7 +46,7 @@ header { gap: 1rem; }
 .check-line { display: flex; align-items: center; gap: 7px; font-size: .8rem; color: #28564c; }
 .map-panel { margin: 20px 0; }
 .map-panel h2 { font-size: 1.15rem; }
-.map-canvas { height: clamp(280px, 45vh, 420px); border-radius: 12px; background: #e6ece5; }
+.map-canvas { width: 100%; height: clamp(280px, 45vh, 420px); border-radius: 12px; background: #e6ece5; }
 .map-panel p { margin: 8px 0; }
 button.place-pin { width: 26px; height: 26px; border-radius: 50%; padding: 0; border: 2px solid white; background: #415664; color: white; box-shadow: 0 1px 5px #172c3980; }
 button.origin-pin { border-radius: 6px; background: #816431; }
@@ -67,3 +67,5 @@ button.place-pin.chosen { background: #006052; outline: 3px solid #f6cb69; z-ind
 .route-status.completed, button.place-pin.completed { background: #405d83; color: white; }
 .route-status.removed, button.place-pin.removed { background: #73545b; color: white; text-decoration: line-through; }
 button.place-pin.current-pin { outline: 4px solid #e2ad3f; z-index: 2; }
+
+.install-hint { margin-top: 16px; }
