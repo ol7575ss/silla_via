@@ -9,6 +9,7 @@ setWorkerUrl(workerUrl)
 
 interface MapProps {
   places: (Pick<Place, 'id' | 'name' | 'latitude' | 'longitude'> & Partial<Pick<Place, 'themes'>>)[]
+  onPlaceClick?: (id: string) => void
   selectedIds: string[]
   originIds: string[]
   statuses?: Record<string, string>
@@ -17,7 +18,7 @@ interface MapProps {
   labels: Messages
 }
 
-export function MapView({ places, selectedIds, originIds, visitOrder, statuses, currentId, labels }: MapProps) {
+export function MapView({ places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick }: MapProps) {
   const container = useRef<HTMLDivElement>(null)
   const [instance, setInstance] = useState<LibreMap | null>(null)
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -128,11 +129,11 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
         button.title += ' · ' + labels.current
       }
       button.setAttribute('aria-label', button.title)
-      button.onclick = () => setActiveId(p.id)
+      button.onclick = () => { setActiveId(p.id); onPlaceClick?.(p.id) }
       markers.push(new Marker({ element: button }).setLngLat([p.longitude, p.latitude]).addTo(instance))
     }
     return () => markers.forEach(marker => marker.remove())
-  }, [instance, places, selectedIds, originIds, visitOrder, statuses, currentId, labels])
+  }, [instance, places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick])
 
   return <section className="map-panel">
     <h2>{labels.map}</h2>
@@ -146,6 +147,7 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
       {selectedIds.includes(active.id) && ' · ' + labels.selected}</p>}
   </section>
 }
+
 
 
 

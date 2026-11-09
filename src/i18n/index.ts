@@ -1,3 +1,4 @@
+import { journeyCopy } from './journey'
 import { en } from '../en'
 import { themeNames, performance, origins, destinations } from '../tripData'
 import ko from './ko'
@@ -20,7 +21,7 @@ export type Messages = Record<keyof typeof english, string> & Record<string, str
 const base: Messages = { ...Object.fromEntries([...origins, ...destinations].map(p => [p.id, p.name])), ...english }
 const translations = { en: {}, ko, ja, es, 'zh-CN': simplified, 'zh-TW': traditional }
 export function messages(language: Language): Messages {
-  return { ...base, ...translations[language] }
+  return { ...base, ...translations[language], ...journeyCopy[language] }
 }
 
 export function savedLanguage(): Language {
@@ -30,3 +31,4 @@ export function savedLanguage(): Language {
   } catch { /* Storage may be disabled. */ }
   return 'en'
 }
+

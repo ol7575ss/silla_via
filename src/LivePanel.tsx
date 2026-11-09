@@ -54,8 +54,9 @@ export function LivePanel({ labels, language, start, end, date, onRisk }: {
           {h.TMP ?? '—'} °C · {labels.prob} {h.POP ?? '—'}% · {h.PTY !== null ? labels[types[h.PTY]] ?? '—' : '—'} · {amount(h.PCP)} · {labels.skyLabel} {h.SKY === 1 ? '☀' : h.SKY === 3 ? '🌤' : h.SKY === 4 ? '☁' : '—'}
         </p>)}
         <p>— · {labels.unknownValue}</p>
-      </details></> : <p role="status">{labels[weather.error ?? 'loadingApi']}</p>}
-    <button type="button" className="secondary" onClick={() => setRefresh(n => n + 1)}>{labels.refreshApi}</button>
-    {import.meta.env.DEV && <details><summary>{labels.busStops}</summary><BusPanel labels={labels} /></details>}
+      </details></> : <p role="status">{weather.error ? labels.loadProblem : labels.loadingApi}</p>}
+    <button type="button" className="secondary" onClick={() => setRefresh(n => n + 1)}>{labels.retryTravel}</button>
+    {import.meta.env.DEV && new URLSearchParams(location.search).has('tools') && <details><summary>{labels.busStops}</summary><BusPanel labels={labels} /></details>}
   </section>
 }
+

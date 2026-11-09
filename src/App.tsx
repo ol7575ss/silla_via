@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { languages, messages, savedLanguage } from './i18n'
-import type { Language } from './i18n'
-import { MapView } from './MapView'
-import { destinations, origins, performance, themeNames } from './tripData'
+import type { Language, Messages } from './i18n'
+import { destinations, origins, performance } from './tripData'
 import type { Theme, TripPreferences } from './tripData'
 import { JourneyResult } from './JourneyResult'
 import { InstallHint } from './InstallHint'
@@ -12,145 +11,115 @@ import type { TourPlace } from './tourData'
 import { RoutingPanel } from './RoutingPanel'
 import './App.css'
 
-type ChoiceProps<T extends string> = {
-  title: string
-  options: { id: T; name: string }[]
-  selected: T[]
-  onChange: (values: T[]) => void
+const styles: [string,string,Theme[]][] = [
+  ['historyStyle','⌂',['history']], ['cafeStyle','☕',['food']], ['foodStyle','♨',['food']],
+  ['photoStyle','◎',['photography']], ['natureStyle','❧',['nature']],
+  ['experienceStyle','✧',['art','history']], ['familyStyle','☀',['nature','art']],
+]
+const tools = import.meta.env.DEV && new URLSearchParams(location.search).has('tools')
+const locations = [...origins, ...destinations]
+const steps = ['styleTitle','detailsTitle','mustTitle','eventTitle','journey']
+function initialStep() {
+  try { return Object.hasOwn(languages, localStorage.getItem('silla-via.language') ?? '') ? 0 : -1 }
+  catch { return -1 }
 }
-
-function Choices<T extends string>({ title, options, selected, onChange }: ChoiceProps<T>) {
-  return <fieldset><legend>{title}</legend><div className="choices">
-    {options.map(({ id, name }) => <label key={id}>
-      <input type="checkbox" checked={selected.includes(id)} onChange={e =>
-        onChange(e.target.checked ? [...selected, id] : selected.filter(value => value !== id))} />
-      {name}
-    </label>)}
-  </div></fieldset>
-}
-
-const mapPlaces = [...destinations, ...origins]
-const originIds = origins.map(p => p.id)
-const motifs = ['✦', '◒', '⌂', '≋', '◇', '⌂', '◈', '≋']
-
 export default function App() {
-  const [live, setLive] = useState(true)
-  const [date, setDate] = useState(() => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))
-  const [tourEvent, setTourEvent] = useState<TourPlace | null>(null)
-  const [savedPlaces, setSavedPlaces] = useState<TourPlace[]>([])
-  const [forecastRisk, setForecastRisk] = useState(false)
-  const [language, setLanguage] = useState(savedLanguage)
-  const en = useMemo(() => messages(language), [language])
-  const themes = (Object.keys(themeNames) as Theme[]).map(id => ({ id, name: en[id] }))
-  const [error, setError] = useState(false)
-  useEffect(() => {
-    document.documentElement.lang = language
-    try { localStorage.setItem('silla-via.language', language) } catch { /* Storage may be disabled. */ }
-  }, [language])
-  const [screen, setScreen] = useState<'welcome' | 'planner' | 'events' | 'summary'>('welcome')
-  const [trip, setTrip] = useState<TripPreferences>({
-    originId: '', startTime: '10:00', endTime: '18:00', themes: [],
-    destinationIds: [], returnToOrigin: false, eventId: null,
-  })
-  const liveTrip = useMemo(() => ({ ...trip, eventId: null }), [trip])
-  const tourPanel = live && <TourPanel labels={en} language={language} eventsOnly={screen === 'events'}
-    savedPlaces={savedPlaces} togglePlace={p => setSavedPlaces(prev => prev.some(v => v.externalContentId === p.externalContentId)
-      ? prev.filter(v => v.externalContentId !== p.externalContentId) : [...prev,p])}
-    date={date} setDate={value => { setDate(value); setTourEvent(null) }} selected={tourEvent} select={setTourEvent} />
-  const matches = performance.themes.some(theme => trip.themes.includes(theme))
-
-  function update(fields: Partial<TripPreferences>) {
-    setTrip(previous => ({ ...previous, ...fields }))
+  const [step,go] = useState(initialStep)
+  const [language,setLanguage] = useState(savedLanguage)
+  const en = useMemo(() => messages(language),[language])
+  const [live,setLive] = useState(true)
+  const [date,setDate] = useState(() => new Date(Date.now()+9*3600000).toISOString().slice(0,10))
+  const [hotel,setHotel] = useState<TourPlace | null>(null)
+  const [end,setEnd] = useState('')
+  const [selectedStyles,setStyles] = useState<string[]>([])
+  const [trip,setTrip] = useState<TripPreferences>({originId:'', destinationIds:[], themes:[], eventId:null, returnToOrigin:false,startTime:'10:00',endTime:'18:00'})
+  const [saved,setSaved] = useState<TourPlace[]>([])
+  const [event,setEvent] = useState<TourPlace | null>(null)
+  const [risk,setRisk] = useState(false)
+  const [error,setError] = useState('')
+  const [showHotel,setShowHotel] = useState(false)
+  const hotelId = hotel ? 'tour-' + hotel.externalContentId : ''
+  const labels = useMemo<Messages>(() => hotel ? {...en,[hotelId]:hotel.name} : en,[en,hotelId,hotel])
+  const chooseLanguage = (id:Language) => {
+    setLanguage(id)
+    try { localStorage.setItem('silla-via.language',id) } catch { /* Storage unavailable */ }
   }
-
-  function finish(eventId: string | null) {
-    update({ eventId })
-    setScreen('summary')
+  useEffect(() => { document.documentElement.lang = language },[language])
+  useEffect(() => { window.scrollTo(0,0); setError('') },[step])
+  const update = (fields:Partial<TripPreferences>) => setTrip(prev => ({...prev,...fields}))
+  const options = <>{locations.map(p => <option key={p.id} value={p.id}>{en[p.id]}</option>)}
+    {hotel && <option value={hotelId}>{hotel.name}</option>}</>
+  const coordinates = (id:string) => {
+    const p = id === hotelId ? hotel : locations.find(v => v.id === id)
+    return p && <small>{p.latitude != null && p.longitude != null ? [p.latitude,p.longitude].join(', ') : en.missing}</small>
   }
-
-  return <main>
-    <header><strong>{en.brand}</strong><label className="language">{en.language}<select value={language} onChange={e => setLanguage(e.target.value as Language)}>
-      {Object.entries(languages).map(([id, name]) => <option lang={id} key={id} value={id}>{name}</option>)}
-    </select></label></header>
-    {screen === 'welcome' && <section className="welcome">
-      <figure className="heritage-photo"><img src="/cheomseongdae.jpg" alt={en.cheomseongdae} />
-        <figcaption><a href="https://commons.wikimedia.org/wiki/File:Cheomseongdae_첨성대.jpg">© Mosbatho</a> ·
-          <a href="https://creativecommons.org/licenses/by/4.0/"> CC BY 4.0</a></figcaption></figure>
-      <div className="copy"><small className="location">{en.location}</small><h1>{en.discover}</h1><p>{en.intro}</p>
-        <button onClick={() => setScreen('planner')}>{en.start} <span aria-hidden="true">→</span></button>
-      </div>
+  function toggleStyle(key:string) {
+    const next = selectedStyles.includes(key) ? selectedStyles.filter(k => k !== key) : [...selectedStyles,key]
+    setStyles(next)
+    const themes = [...new Set(styles.filter(([id]) => next.includes(id)).flatMap(s => s[2]))]
+    update({themes,eventId:themes.includes('history') ? trip.eventId : null})
+  }
+  function toggleLocal(id:string) {
+    update({destinationIds:trip.destinationIds.includes(id) ? trip.destinationIds.filter(v => v !== id) : [...trip.destinationIds,id]})
+  }
+  function toggleSaved(p:TourPlace) {
+    setSaved(prev => prev.some(v => v.externalContentId === p.externalContentId) ? prev.filter(v => v.externalContentId !== p.externalContentId) : [...prev,p])
+  }
+  function chooseHotel(p:TourPlace) {
+    const next = hotel?.externalContentId === p.externalContentId ? null : p
+    if (hotel && trip.originId === hotelId) update({originId:''})
+    if (hotel && end === hotelId) setEnd('')
+    setHotel(next); setShowHotel(false)
+  }
+  function advance() {
+    if (step === 2) {
+      if (!date) return setError('dateError')
+      if (!trip.originId || !trip.startTime || !trip.endTime) return setError('invalid')
+      if (trip.startTime >= trip.endTime) return setError('timeRange')
+    }
+    if (step === 3 && trip.destinationIds.length > 5) return setError('limit')
+    go(step+1)
+  }
+  const panelProps = {labels:en,language,date,selected:event,select:setEvent,savedPlaces:saved,togglePlace:toggleSaved}
+  return <main className="travel-app">
+    <header><strong><img src="/icons/demo.svg" alt="" />Silla Via</strong>
+      <select className="locale" aria-label={en.language} value={language} onChange={e => chooseLanguage(e.target.value as Language)}>
+        {Object.entries(languages).map(([id,name]) => <option key={id} value={id} lang={id}>{name}</option>)}</select></header>
+    {step === -1 && <section className="language-page"><h1>{en.language}</h1><div className="language-grid">
+      {Object.entries(languages).map(([id,name]) => <button key={id} lang={id} onClick={() => { chooseLanguage(id as Language); go(0) }}>{name}<span>→</span></button>)}</div></section>}
+    {step === 0 && <section className="welcome"><figure className="heritage-photo"><img src="/cheomseongdae.jpg" alt={en.cheomseongdae}/>
+      <figcaption><a href="https://commons.wikimedia.org/wiki/File:Cheomseongdae_첨성대.jpg">© Mosbatho</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></figcaption></figure>
+      <div className="copy"><small className="location">{en.location}</small><h1>{en.discover}</h1><p>{en.intro}</p><button onClick={() => go(1)}>{en.begin} →</button></div></section>}
+    {step > 0 && <section className="flow"><nav><button className="back" onClick={() => go(step-1)}>← {en.back}</button><span>{step} / 5</span></nav>
+      <progress aria-label={en[steps[step-1]]} value={step} max={5}/><h1>{en[steps[step-1]]}</h1>
+      {step === 1 && <div className="style-grid">{styles.map(([key,icon]) => <button key={key} aria-pressed={selectedStyles.includes(key)} onClick={() => toggleStyle(key)}>
+        <i aria-hidden="true">{icon}</i>{en[key]}<span aria-hidden="true">{selectedStyles.includes(key) ? '✓' : '+'}</span></button>)}</div>}
+      {step === 2 && <div className="detail-fields"><label>{en.tripDate}<input type="date" required value={date} onChange={e => { setDate(e.target.value); setEvent(null) }}/></label>
+        <div className="times">{(['startTime','endTime'] as const).map((k,i) => <label key={k}>{en[i ? 'until':'from']}<input type="time" required value={trip[k]} onChange={e => update({[k]:e.target.value})}/></label>)}</div>
+        {live && <div><small>{en.hotelOptional}</small><button className="field-button" aria-expanded={showHotel} onClick={() => setShowHotel(!showHotel)}>{hotel?.name ?? en.hotelSearch} ⌄</button>
+          {hotel && <button className="secondary" onClick={() => chooseHotel(hotel)}>{en.noPreference}</button>}
+          {showHotel && <TourPanel {...panelProps} eventsOnly={false} hotelOnly savedPlaces={hotel ? [hotel] : []} togglePlace={chooseHotel}/>}</div>}
+        <label>{en.origin}<select value={trip.originId} onChange={e => update({originId:e.target.value})}><option value="">{en.placeholder}</option>{options}</select>{coordinates(trip.originId)}</label>
+        <label>{en.endPlace}<select value={end} onChange={e => setEnd(e.target.value)}><option value="">{en.noPreference}</option>{options}</select>{end && coordinates(end)}</label></div>}
+      {step === 3 && <>{live && <details className="find-places"><summary>{en.searchPlaces}</summary><TourPanel {...panelProps} eventsOnly={false}/></details>}<h2>{en.timedPlaces}</h2><div className="local-list">{destinations.map(p => <button key={p.id} aria-pressed={trip.destinationIds.includes(p.id)} onClick={() => toggleLocal(p.id)}>
+        {p.id === 'cheomseongdae' && <img src="/cheomseongdae.jpg" alt=""/>}<strong>{en[p.id]}</strong><small>{p.themes.map(t => en[t]).join(' · ')}</small><span>{en[p.id+'Intro']}</span><b>{trip.destinationIds.includes(p.id) ? '✓' : '+'}</b></button>)}</div>
+        {!!(saved.length + trip.destinationIds.length) && <aside><h2>{en.selectedPlaces}</h2><div className="chips">
+          {trip.destinationIds.map(id => <button key={id} onClick={() => toggleLocal(id)}>{en[id]} ×</button>)}
+          {saved.map(p => <button key={p.externalContentId} onClick={() => toggleSaved(p)}>{p.name} ×</button>)}</div></aside>}
+        </>}
+      {step === 4 && (live ? <TourPanel {...panelProps} eventsOnly/> : trip.themes.includes('history') ? <article className="event"><small>{en.demo}</small><h2>{en.eventName}</h2><p>{en.venue} · {performance.startTime}–{performance.endTime}</p><button aria-pressed={!!trip.eventId} onClick={() => update({eventId:trip.eventId ? null : performance.id})}>{trip.eventId ? en.selected : en.add}</button></article> : <p>{en.empty}</p>)}
+      {step < 5 && <div className="journey-actions">{error && <p role="alert">{en[error]}</p>}{step === 4 && <button className="secondary" onClick={() => {setEvent(null);update({eventId:null});go(5)}}>{en.skip}</button>}
+        <button onClick={advance}>{step === 4 ? en.generate : en.next} →</button></div>}
+      {step === 5 && <><p>{date} · {trip.startTime}–{trip.endTime}<br/>{labels[trip.originId]}{end && ' → '+labels[end]}{hotel && <><br/>{en.lodging} · {hotel.name}</>}</p>
+        {live && saved.length > 0 && <aside><h2>{en.savedPlaces}</h2>{saved.map(p => <p key={p.externalContentId}>{p.name}</p>)}</aside>}
+        {live && event && <p>{en.event} · {event.name} · {en.tourUnscheduled}</p>}
+        <JourneyResult hotel={hotel} trip={trip} finalId={end} labels={labels} edit={() => go(2)} live={live} forecastRisk={risk}/>
+        {live && <LivePanel date={date} labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setRisk}/>}
+        {tools && live && <RoutingPanel labels={en} language={language}/>}</>}
     </section>}
-    {screen === 'planner' && <section className="planner">
-      <button className="back" onClick={() => setScreen('welcome')}>← {en.back}</button>
-      <small className="step">1 / 3</small><h1>{en.planner}</h1>
-      {live && <label>{en.tripDate}<input type="date" value={date} onChange={e => {
-        if (e.target.value) { setDate(e.target.value); setTourEvent(null) }
-      }} /></label>}
-      {live && <details className="explore" open><summary>{en.exploreTour}</summary>{tourPanel}</details>}
-      {live && <h2>{en.timedPlaces}</h2>}
-      <form noValidate onSubmit={e => {
-        e.preventDefault()
-        const invalid = !trip.originId || !trip.startTime || !trip.endTime
-        setError(invalid)
-        if (!invalid) setScreen('events')
-      }}>
-        <label>{en.origin}<select required value={trip.originId} onChange={e => update({ originId: e.target.value })}>
-          <option value="">{en.placeholder}</option>
-          {origins.map(place => <option key={place.id} value={place.id}>{en[place.id]}</option>)}
-        </select></label>
-        {trip.originId && origins.find(p => p.id === trip.originId)?.latitude === null && <small>{en.missing}</small>}
-        <div className="times">
-          <label>{en.from}<input required type="time" value={trip.startTime} onChange={e => update({ startTime: e.target.value })} /></label>
-          <label>{en.until}<input required type="time" value={trip.endTime} onChange={e => update({ endTime: e.target.value })} /></label>
-        </div>
-        <Choices title={en.interests} options={themes} selected={trip.themes} onChange={values =>
-          update({ themes: values, eventId: performance.themes.some(t => values.includes(t)) ? trip.eventId : null })} />
-        <fieldset><legend>{en.destinations}</legend><div className="place-grid">
-          {[...destinations].sort((a,b) => Number(b.themes.some(t => trip.themes.includes(t))) - Number(a.themes.some(t => trip.themes.includes(t)))).map(place => {
-            const index = destinations.indexOf(place)
-            const checked = trip.destinationIds.includes(place.id)
-            return <label className="place-card" key={place.id}>
-              <span aria-hidden="true" className={'motif motif-' + place.id}>{motifs[index]}</span>
-              <strong>{en[place.id]}</strong><small>{place.themes.map(t => en[t]).join(' · ')}</small>
-              <span className="check-line"><input type="checkbox" checked={checked} onChange={() =>
-                update({ destinationIds: checked ? trip.destinationIds.filter(id => id !== place.id) : [...trip.destinationIds, place.id] })} />
-                {checked ? en.selected : en.select}</span>
-            </label>
-          })}
-        </div></fieldset>
-        <MapView places={mapPlaces} originIds={originIds} selectedIds={[trip.originId, ...trip.destinationIds]} labels={en} />
-        <label className="return"><input type="checkbox" checked={trip.returnToOrigin}
-          onChange={e => update({ returnToOrigin: e.target.checked })} />{en.returnTrip}</label>
-        {error && <p role="alert">{en.invalid}</p>}<div className="actions"><button>{en.next}</button></div>
-      </form>
-    </section>}
-    {screen === 'events' && <section className="planner">
-      <button className="back" onClick={() => setScreen('planner')}>← {en.back}</button>
-      <small className="step">2 / 3</small><h1>{en.events}</h1>
-      {live ? <>{tourPanel}<div className="actions"><button onClick={() => setScreen('summary')}>{en.next}</button></div></> : matches ? <article className="event">
-        {performance.demoOnly && <strong className="demo">{en.demo}</strong>}
-        <h2>{en.eventName}</h2>
-        <p>{en.venue}<br />{performance.startTime}–{performance.endTime} · {en[performance.setting]}<br />
-          {performance.themes.map(theme => en[theme]).join(', ')}</p>
-        <p>{en.fictional}</p>
-        <div className="actions"><button onClick={() => finish(performance.id)}>{en.add}</button>
-          <button className="secondary" onClick={() => finish(null)}>{en.skip}</button></div>
-      </article> : <><p>{en.empty}</p><button onClick={() => finish(null)}>{en.next}</button></>}
-    </section>}
-    {screen === 'summary' && <section className="planner">
-      <button className="back" onClick={() => setScreen('events')}>← {en.back}</button>
-      <small className="step">3 / 3</small><h1>{en.journey}</h1>
-      {live && savedPlaces.length > 0 && <aside className="trip-notes"><h2>{en.savedPlaces}</h2>
-        <ul>{savedPlaces.map(p => <li key={p.externalContentId} lang="ko">{p.name}</li>)}</ul></aside>}
-      {live && tourEvent && <p>{en.event} · <span lang="ko">{tourEvent.name}</span> · {en.tourUnscheduled}</p>}
-      <JourneyResult key={live ? 'live' : 'demo'} live={live} forecastRisk={forecastRisk} trip={live ? liveTrip : trip} labels={en} edit={() => setScreen('planner')} />
-    </section>}
-    {import.meta.env.DEV && screen === 'summary' && live && <RoutingPanel labels={en} language={language} />}
-    {import.meta.env.DEV && <details><summary>{en.dataMode} · {live ? 'LIVE' : 'DEMO'}</summary>
-      <label><input type="checkbox" checked={live} onChange={e => setLive(e.target.checked)} /> LIVE</label>
-    </details>}
-
-    {screen === 'summary' && live && <LivePanel date={date} labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setForecastRisk} />}
-    <InstallHint labels={en} visible={screen === 'welcome'} />
+    {tools && step === 0 && <details><summary>{en.dataMode}</summary><label><input type="checkbox" checked={live} onChange={e => {setLive(e.target.checked);update({eventId:null})}}/> LIVE</label></details>}
+    <InstallHint labels={en} visible={step === 0}/>
   </main>
 }
+
+

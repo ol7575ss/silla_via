@@ -110,8 +110,8 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
     }
     reachedStops = true
     let returnLeg: TravelLeg | null = null
-    if (trip.returnToOrigin) {
-      const home = rain?.returnPlaceId ?? trip.originId
+    if ((trip.returnToOrigin || trip.finalPlaceId) && from !== (trip.finalPlaceId ?? rain?.returnPlaceId ?? trip.originId)) {
+      const home = trip.finalPlaceId ?? rain?.returnPlaceId ?? trip.originId
       returnLeg = links.get(key(from, home)) ?? null
       if (!returnLeg) { gaps.set(key(from, home), [from, home]); return }
       clock += returnLeg.durationMinutes
@@ -140,5 +140,6 @@ export function optimizeRoute(trip: TripPreferences, places: Place[], event: Eve
   if (missedEvent) return fail('eventTime')
   return fail('missingLeg')
 }
+
 
 

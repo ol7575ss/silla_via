@@ -63,7 +63,9 @@ export interface TripPreferences {
   endTime: string
   themes: Theme[]
   destinationIds: string[]
+  finalPlaceId?: string
   returnToOrigin: boolean
   eventId: string | null
 }
+
 

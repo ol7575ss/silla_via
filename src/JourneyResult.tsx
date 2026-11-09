@@ -5,11 +5,25 @@ import { destinations, origins, performance } from './tripData'
 import type { TripPreferences } from './tripData'
 import type { Messages } from './i18n'
 import { MapView } from './MapView'
+import type { TourPlace } from './tourData'
 
 import { clock, rainCheckpoint, replanRemainingRoute } from './algorithms/replanRemainingRoute'
 import type { Journey, Visit } from './algorithms/optimizeRoute'
-export function JourneyResult({ trip, labels, edit, live, forecastRisk }: { live: boolean; forecastRisk: boolean; trip: TripPreferences; labels: Messages; edit: () => void }) {
-  const result = useMemo(() => optimizeRoute(trip, destinations, performance, demoTravelLegs), [trip])
+export function JourneyResult({ trip: input, finalId, hotel, labels, edit, live, forecastRisk }: { hotel: TourPlace | null; finalId: string; live: boolean; forecastRisk: boolean; trip: TripPreferences; labels: Messages; edit: () => void }) {
+  const { trip, result } = useMemo(() => {
+    const base = { ...input, finalPlaceId: finalId || undefined, returnToOrigin: finalId === input.originId }
+    const calculate = (prefs: TripPreferences) => optimizeRoute(prefs, destinations, performance, demoTravelLegs)
+    if (input.destinationIds.length) return { trip: base, result: calculate(base) }
+    const affinity = (themes: typeof input.themes) => themes.filter(t => input.themes.includes(t)).length
+    const ranked = [...destinations].sort((a,b) => affinity(b.themes) - affinity(a.themes))
+    const attempts = ranked.map(p => {
+      const trip = { ...base, destinationIds: [p.id] }
+      return { trip, result: calculate(trip) }
+    })
+    return attempts.find(a => a.result.ok) ?? attempts[0]
+  }, [input, finalId])
+  const [highlight,setHighlight] = useState('')
+  const [dismissed,setDismissed] = useState(false)
   const [indoorForecast, setIndoorForecast] = useState<Journey | null>(null)
   const [forecastError, setForecastError] = useState('')
   const [weather, setWeather] = useState<'CLEAR' | 'RAIN'>('CLEAR')
@@ -20,8 +34,10 @@ export function JourneyResult({ trip, labels, edit, live, forecastRisk }: { live
   const [waiver, setWaiver] = useState<string[]>([])
   const name = (id: string) => id === performance.id ? labels.eventName : labels[id]
   const duration = (n: number) => n + ' ' + labels.unit
+  const locations = [...origins,...destinations, ...(hotel ? [{ ...hotel, id: 'tour-' + hotel.externalContentId }] : [])]
   if (!result.ok) return <div>
     <p role="alert">{labels[result.reason]}</p>
+    <MapView places={locations.filter(p => [trip.originId,finalId,...input.destinationIds].includes(p.id))} selectedIds={input.destinationIds} originIds={[trip.originId]} labels={labels}/>
     {result.gaps.length > 0 && <ul>{result.gaps.map(([from, to]) =>
       <li key={from + '/' + to}>{name(from)} → {name(to)}</li>)}</ul>}
     <button onClick={edit}>{labels.editTrip}</button>
@@ -72,17 +88,20 @@ export function JourneyResult({ trip, labels, edit, live, forecastRisk }: { live
     setWaiver([])
   }
   const order = Object.fromEntries(route.visits.map(v => [v.placeId, v.order]))
-  const places = [...origins.filter(p => p.id === trip.originId), ...destinations.filter(p => p.id in order || removed.some(v => v.placeId === p.id))]
+  const places = locations.filter(p => p.id === trip.originId || p.id === finalId || p.id in order || removed.some(v => v.placeId === p.id))
   return <>
-    <p><strong>{name(trip.originId)}</strong><br />{trip.startTime}–{trip.endTime}</p>
-    {live && (forecastRisk || indoorForecast) && <section className="weather-panel">
-      {forecastRisk && <p>{labels.riskNotice}</p>}
+    <div className="journey-stat"><strong>{route.visits.length}</strong> {labels.visitsCount} · {labels.totalStay} {duration(route.sightseeing)}</div>
+    {route.demoOnly && <p className="demo">{labels.demoTravel}</p>}
+    <MapView places={places} selectedIds={highlight ? [highlight] : []} onPlaceClick={setHighlight} originIds={[trip.originId]} visitOrder={order} statuses={adjusted || raining ? markerStatus : undefined} currentId={raining ? current : undefined} labels={labels} />
+    {live && !dismissed && (forecastRisk || indoorForecast) && <section className="weather-panel">
+      {forecastRisk && <p>{labels.rainPrompt}</p>}
       {indoorForecast ? <button onClick={() => setIndoorForecast(null)}>{labels.keepRoute}</button> :
         <button onClick={() => {
           const next = optimizeRoute(trip, destinations, performance, demoTravelLegs, { returnPlaceId: trip.originId })
           if (next.ok) { setIndoorForecast(next.journey); setForecastError('') }
           else setForecastError(next.reason)
-        }}>{labels.switchIndoor}</button>}
+        }}>{labels.replanJourney}</button>}
+      {!indoorForecast && <button className="secondary" onClick={() => setDismissed(true)}>{labels.keepJourney}</button>}
       {forecastError && <p role="alert">{labels[forecastError]}</p>}
     </section>}
     {!live && <section className="weather-panel">
@@ -107,11 +126,13 @@ export function JourneyResult({ trip, labels, edit, live, forecastRisk }: { live
     {adjusted && <details><summary>{labels.original}</summary><ol>{original.visits.map(v =>
       <li key={v.placeId}>{name(v.placeId)} · {clock(v.arrival)}–{clock(v.departure)} · {labels[v.leg.mode === 'BUS' ? 'bus' : 'walk']} {duration(v.leg.durationMinutes)}</li>)}</ol>
       <p>{labels.totalTravel} · {duration(original.travel)} → {duration(route.travel)}</p>
-      {original.returnTime !== null && <p>{labels.returnAt} · {clock(original.returnTime)}</p>}</details>}
+      {original.returnTime !== null && <p>{labels.endPlace} · {name(finalId || trip.originId)} · {clock(original.returnTime)}</p>}</details>}
     {removed.map(v => <p className="route-status removed" key={v.placeId}>{labels.removed} · {name(v.placeId)}</p>)}
-    <ol className="timeline">{route.visits.map(v => <li key={v.placeId}>
+    <ol className="timeline">{route.visits.map(v => <li key={v.placeId} className={highlight === v.placeId ? 'highlight' : undefined}>
       <small>{labels[v.leg.mode === 'BUS' ? 'bus' : 'walk']} · {duration(v.leg.durationMinutes)}</small>
-      <h2>{name(v.placeId)}</h2>
+      <h2><button aria-pressed={highlight === v.placeId} onClick={() => setHighlight(v.placeId)}>{name(v.placeId)}</button></h2>
+      {v.placeId === 'cheomseongdae' && <img src="/cheomseongdae.jpg" alt="" />}
+      <small>{labels[v.placeId + 'Intro']}</small>
       {raining && <span className={'route-status ' + status(v)}>{labels[status(v)]}
         {destinations.some(p => p.id === v.placeId && p.setting === 'indoor') && ' · ' + labels.indoor}</span>}
       <div>{labels.arrival} {clock(v.arrival)} · {labels.depart} {clock(v.departure)}</div>
@@ -121,16 +142,17 @@ export function JourneyResult({ trip, labels, edit, live, forecastRisk }: { live
       {v.hoursUnknown && <small>{labels.unknownHours}</small>}
     </li>)}</ol>
     <p>{route.returnLeg && route.returnTime !== null ? <>
-      {labels.returnAt} · {clock(route.returnTime)}<br />
+      {labels.endPlace} · {name(finalId || trip.originId)} · {clock(route.returnTime)}<br />
       {labels[route.returnLeg.mode === 'BUS' ? 'bus' : 'walk']} · {duration(route.returnLeg.durationMinutes)}
-    </> : labels.noReturn}</p>
+    </> : finalId ? name(finalId) : labels.noReturn}</p>
     <p>{labels.totalTravel} · {duration(route.travel)}<br />{labels.totalStay} · {duration(route.sightseeing)}<br />
       {labels.finishTime} · {clock(route.finish)}</p>
-    {route.demoOnly && <p className="demo">{labels.demoTravel}</p>}
-    <MapView places={places} selectedIds={[]} originIds={[trip.originId]} visitOrder={order} statuses={raining ? markerStatus : undefined} currentId={raining ? current : undefined} labels={labels} />
     <button onClick={edit}>{labels.editTrip}</button>
   </>
 }
+
+
+
 
 
 

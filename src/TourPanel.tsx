@@ -19,13 +19,13 @@ function read(kind: TourKind, args: string) {
 
 interface Props {
   labels: Messages; language: Language; eventsOnly: boolean; date: string
-  setDate: (date: string) => void
+  hotelOnly?: boolean
   savedPlaces: TourPlace[]; togglePlace: (place: TourPlace) => void
   selected: TourPlace | null; select: (place: TourPlace | null) => void
 }
-export function TourPanel({ labels, language, eventsOnly, date, setDate, selected, select, savedPlaces, togglePlace }: Props) {
+export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, selected, select, savedPlaces, togglePlace }: Props) {
   const [tab, setTab] = useState<TourKind>('attractions')
-  const kind = eventsOnly ? 'festivals' : tab
+  const kind = eventsOnly ? 'festivals' : hotelOnly ? 'lodging' : tab
   const [query,setQuery] = useState('')
   const [keyword,setKeyword] = useState('')
   const [page, setPage] = useState(1)
@@ -36,7 +36,7 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
   const [error, setError] = useState('')
   const [detailAttempt, setDetailAttempt] = useState(0)
   const [detailError, setDetailError] = useState('')
-  const [locatedOnly, setLocatedOnly] = useState(false)
+
   useEffect(() => {
     let stale = false
     setData(null); setError(''); setActive('')
@@ -66,36 +66,32 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
   const day = date.replaceAll('-', '')
   const items = (data?.items ?? []).filter(p => kind !== 'festivals' ||
     (/^\d{8}$/.test(p.start) && /^\d{8}$/.test(p.end) && p.start <= day && day <= p.end))
-  const visible = locatedOnly ? items.filter(p => p.latitude !== null && p.longitude !== null) : items
+  const visible = items
   const markers = visible.map(p => ({ ...p, id: 'tour-' + p.externalContentId }))
   const stamp = (s: string) => new Date(s).toLocaleString(language, { timeZone: 'Asia/Seoul' }) + ' KST'
   return <section className="event tour-panel">
-    <h2>{labels.tourTitle}</h2>
-    {!eventsOnly && <label>{labels.tourCategory}<select value={tab} onChange={e => {
+    
+    {!eventsOnly && !hotelOnly && <label>{labels.tourCategory}<select value={tab} onChange={e => {
       setTab(e.target.value as TourKind); setPage(1); setActive(''); setData(null)
-    }}>{(['attractions','culture','dining','lodging','festivals'] as const).map(k => <option key={k} value={k}>{labels[k]}</option>)}</select></label>}
+    }}>{(['attractions','culture','dining'] as const).map(k => <option key={k} value={k}>{labels[k]}</option>)}</select></label>}
     {kind !== 'festivals' && <form onSubmit={e => {e.preventDefault();setKeyword(query.trim());setPage(1)}}>
       <label>{labels.searchPlaces}<input value={query} maxLength={60} onChange={e => setQuery(e.target.value)} /></label>
       <button>{labels.searchPlaces}</button></form>}
-    {kind === 'festivals' && <label>{labels.tripDate}<input type="date" required value={date}
-      onChange={e => { if (e.target.value) { setDate(e.target.value); setActive('') } }} /></label>}
-    <label className="return"><input type="checkbox" checked={locatedOnly} onChange={e => setLocatedOnly(e.target.checked)} />{labels.withLocation}</label>
-    {error ? <p role="alert">{labels[error]} <button onClick={() => setRetry(n => n + 1)}>{labels.refreshApi}</button></p> :
+    {error ? <p role="alert">{labels.loadProblem} <button onClick={() => setRetry(n => n + 1)}>{labels.retryTravel}</button></p> :
       !data ? <p role="status">{labels.loadingApi}</p> : <>
       <p><a href="https://www.data.go.kr/data/15101578/openapi.do">한국관광공사 TourAPI</a> · {stamp(data.fetchedAt)}</p>
       {!visible.length && <p>{labels[kind === 'festivals' ? 'noTourEvents' : 'apiEmpty']}</p>}
       <div className="place-grid">{visible.map(p => <article className="place-card" key={p.externalContentId}>
         <button className="secondary" aria-pressed={active === p.externalContentId} onClick={() => setActive(p.externalContentId)}>
-          <strong lang="ko">{p.name}</strong></button>
+          <strong lang="ko">{p.name}</strong><small>{labels.detailsLink} ›</small></button>
         {p.imageUrl ? <figure><img loading="lazy" src={p.imageUrl} alt="" /><figcaption>한국관광공사 · KOGL {p.license}</figcaption></figure> : <div className="photo-placeholder" aria-hidden="true">✦</div>}
-        <small lang="ko">{p.address}</small><small>{p.latitude !== null && p.longitude !== null ? p.latitude + ', ' + p.longitude : labels.missing}</small>
+        <small>{labels[kind]}</small><small lang="ko">{p.address}</small><small>{p.latitude !== null && p.longitude !== null ? p.latitude + ', ' + p.longitude : labels.missing}</small>
         {kind === 'festivals' && <><small>{p.start}–{p.end} · {labels.timeUnknown}</small>
-          <label><input type="checkbox" checked={selected?.externalContentId === p.externalContentId}
-            onChange={e => select(e.target.checked ? p : null)} /> {labels.add}</label></>}
+          <button aria-pressed={selected?.externalContentId === p.externalContentId} onClick={() => select(selected?.externalContentId === p.externalContentId ? null : p)}>{selected?.externalContentId === p.externalContentId ? labels.selected : labels.add}</button></>}
         {kind !== 'festivals' && <label className="return"><input type="checkbox" checked={savedPlaces.some(v => v.externalContentId === p.externalContentId)}
-          onChange={() => togglePlace(p)} />{labels.savePlace}</label>}
+          onChange={() => togglePlace(p)} />{hotelOnly ? labels.select : labels.savePlace}</label>}
         {active === p.externalContentId && description && <p lang="ko">{description}</p>}
-        {active === p.externalContentId && detailError && <p role="status">{labels[detailError]} <button onClick={() => setDetailAttempt(n => n+1)}>{labels.refreshApi}</button></p>}
+        {active === p.externalContentId && detailError && <p role="status">{labels.loadProblem} <button onClick={() => setDetailAttempt(n => n+1)}>{labels.retryTravel}</button></p>}
       </article>)}</div>
       {kind !== 'festivals' && <div className="actions">
         {page > 1 && <button onClick={() => setPage(n => n - 1)}>← {labels.back}</button>}
@@ -103,7 +99,9 @@ export function TourPanel({ labels, language, eventsOnly, date, setDate, selecte
       {markers.some(p => p.latitude !== null && p.longitude !== null) &&
         <MapView places={markers} selectedIds={active ? ['tour-' + active] : []} originIds={[]} labels={labels} />}
     </>}
-    {selected && <p>{labels.event} · <span lang="ko">{selected.name}</span> · {labels.tourUnscheduled}</p>}
+    {eventsOnly && selected && <p>{labels.event} · <span lang="ko">{selected.name}</span> · {labels.tourUnscheduled}</p>}
   </section>
 }
 const errorLabels = { apiLimit: true, apiAuth: true, apiKey: true, tourQuota: true, apiFailed: true }
+
+
