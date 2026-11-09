@@ -6,6 +6,7 @@ import { destinations, origins, performance, themeNames } from './tripData'
 import type { Theme, TripPreferences } from './tripData'
 import { JourneyResult } from './JourneyResult'
 import { InstallHint } from './InstallHint'
+import { LivePanel } from './LivePanel'
 import './App.css'
 
 type ChoiceProps<T extends string> = {
@@ -30,6 +31,8 @@ const originIds = origins.map(p => p.id)
 const motifs = ['✦', '◒', '⌂', '≋', '◇', '⌂', '◈', '≋']
 
 export default function App() {
+  const [live, setLive] = useState(false)
+  const [forecastRisk, setForecastRisk] = useState(false)
   const [language, setLanguage] = useState(savedLanguage)
   const en = useMemo(() => messages(language), [language])
   const themes = (Object.keys(themeNames) as Theme[]).map(id => ({ id, name: en[id] }))
@@ -118,11 +121,16 @@ export default function App() {
     {screen === 'summary' && <section className="planner">
       <button className="back" onClick={() => setScreen('events')}>← {en.back}</button>
       <small className="step">3 / 3</small><h1>{en.journey}</h1>
-      <JourneyResult trip={trip} labels={en} edit={() => setScreen('planner')} />
+      <JourneyResult live={live} forecastRisk={forecastRisk} trip={trip} labels={en} edit={() => setScreen('planner')} />
     </section>}
+    <details><summary>{en.dataMode} · {live ? 'LIVE' : 'DEMO'}</summary>
+      <label><input type="checkbox" checked={live} onChange={e => setLive(e.target.checked)} /> LIVE</label>
+    </details>
+    {live && <LivePanel labels={en} language={language} start={trip.startTime} end={trip.endTime} onRisk={setForecastRisk} />}
     <InstallHint labels={en} visible={screen === 'welcome'} />
   </main>
 }
+
 
 
 

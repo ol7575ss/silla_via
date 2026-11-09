@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:pages": "npm run build && npx --yes wrangler@4 pages dev dist --compatibility-date=2025-09-01",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -25,3 +26,4 @@
     "vite-plugin-pwa": "^2.0.0"
   }
 }
+

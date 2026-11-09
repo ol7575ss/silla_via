@@ -8,8 +8,10 @@ import { MapView } from './MapView'
 
 import { clock, rainCheckpoint, replanRemainingRoute } from './algorithms/replanRemainingRoute'
 import type { Journey, Visit } from './algorithms/optimizeRoute'
-export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; labels: Messages; edit: () => void }) {
+export function JourneyResult({ trip, labels, edit, live, forecastRisk }: { live: boolean; forecastRisk: boolean; trip: TripPreferences; labels: Messages; edit: () => void }) {
   const result = useMemo(() => optimizeRoute(trip, destinations, performance, demoTravelLegs), [trip])
+  const [indoorForecast, setIndoorForecast] = useState<Journey | null>(null)
+  const [forecastError, setForecastError] = useState('')
   const [weather, setWeather] = useState<'CLEAR' | 'RAIN'>('CLEAR')
   const [preference, setPreference] = useState<'INDOOR' | 'KEEP_ORIGINAL' | null>(null)
   const [replacement, setReplacement] = useState<Journey | null>(null)
@@ -25,8 +27,9 @@ export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; l
     <button onClick={edit}>{labels.editTrip}</button>
   </div>
   const original = result.journey
-  const route = replacement ?? original
-  const raining = weather === 'RAIN'
+  const adjusted = live ? indoorForecast : replacement
+  const route = adjusted ?? original
+  const raining = !live && weather === 'RAIN'
   const checkpoint = rainCheckpoint(original, trip)
   const completed = raining ? checkpoint.completed.map(v => v.placeId) : []
   const current = raining ? checkpoint.currentPlaceId : trip.originId
@@ -72,7 +75,17 @@ export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; l
   const places = [...origins.filter(p => p.id === trip.originId), ...destinations.filter(p => p.id in order || removed.some(v => v.placeId === p.id))]
   return <>
     <p><strong>{name(trip.originId)}</strong><br />{trip.startTime}–{trip.endTime}</p>
-    <section className="weather-panel">
+    {live && (forecastRisk || indoorForecast) && <section className="weather-panel">
+      {forecastRisk && <p>{labels.riskNotice}</p>}
+      {indoorForecast ? <button onClick={() => setIndoorForecast(null)}>{labels.keepRoute}</button> :
+        <button onClick={() => {
+          const next = optimizeRoute(trip, destinations, performance, demoTravelLegs, { returnPlaceId: trip.originId })
+          if (next.ok) { setIndoorForecast(next.journey); setForecastError('') }
+          else setForecastError(next.reason)
+        }}>{labels.switchIndoor}</button>}
+      {forecastError && <p role="alert">{labels[forecastError]}</p>}
+    </section>}
+    {!live && <section className="weather-panel">
       <strong>{labels[raining ? 'rain' : 'clear']}</strong>
       <p>{raining ? clock(checkpoint.currentTime) : trip.startTime} · {labels.current} · {name(current)}</p>
       {!raining && <button onClick={() => setWeather('RAIN')}>{labels.simulate}</button>}
@@ -90,8 +103,8 @@ export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; l
         route.visits.every(v => ['completed', 'kept'].includes(status(v))) && route.finish === original.finish)) &&
         <p>{labels.unchanged}</p>}
       {raining && <button className="secondary" onClick={resetDemo}>{labels.reset}</button>}
-    </section>
-    {replacement && <details><summary>{labels.original}</summary><ol>{original.visits.map(v =>
+    </section>}
+    {adjusted && <details><summary>{labels.original}</summary><ol>{original.visits.map(v =>
       <li key={v.placeId}>{name(v.placeId)} · {clock(v.arrival)}–{clock(v.departure)} · {labels[v.leg.mode === 'BUS' ? 'bus' : 'walk']} {duration(v.leg.durationMinutes)}</li>)}</ol>
       <p>{labels.totalTravel} · {duration(original.travel)} → {duration(route.travel)}</p>
       {original.returnTime !== null && <p>{labels.returnAt} · {clock(original.returnTime)}</p>}</details>}
@@ -118,5 +131,6 @@ export function JourneyResult({ trip, labels, edit }: { trip: TripPreferences; l
     <button onClick={edit}>{labels.editTrip}</button>
   </>
 }
+
 
 
