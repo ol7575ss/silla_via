@@ -1,7 +1,8 @@
 export interface TravelLeg {
   fromPlaceId: string
   toPlaceId: string
-  mode: 'WALK' | 'BUS'
+  mode: 'WALK' | 'BUS' | 'PUBLIC_TRANSIT' | 'STAY'
+  transfers?: number | null
   durationMinutes: number
   distanceMeters?: number
   source: string

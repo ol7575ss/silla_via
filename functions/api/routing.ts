@@ -1,6 +1,6 @@
 import { diagnostic } from '../../server/portal'
 import { destinations, origins } from '../../src/tripData'
-import { routePairs } from '../../src/routing'
+
 import type { RouteStep, RouteSummary } from '../../src/routing'
 
 type Row = Record<string, unknown>
@@ -37,10 +37,21 @@ const missing = new Set(['NO_RESULTS','ROUTE_RESULT_NOT_FOUND','STARTNODES_NULL'
 export async function onRequestGet({ request, env }: { request: Request; env: { KAKAO_REST_API_KEY?: string } }) {
   const params = new URL(request.url).searchParams
   const from = params.get('from'), to = params.get('to'), mode = params.get('mode')
-  if (!from || !to || !routePairs.some(([a,b]) => a === from && b === to) ||
+  if (!from || !to || from === to ||
     (mode !== 'WALK' && mode !== 'PUBLIC_TRANSIT')) return fail('apiFailed', 400)
   const places = [...destinations, ...origins]
-  const a = places.find(p => p.id === from), b = places.find(p => p.id === to)
+  function endpoint(id: string, prefix: string) {
+    const local = places.find(p => p.id === id)
+    if (local) return local
+    if (!/^tour-\d{1,12}$/.test(id)) return null
+    const x = params.get(prefix + 'X'), y = params.get(prefix + 'Y')
+    if (!x?.trim() || !y?.trim()) return null
+    const longitude = Number(x), latitude = Number(y)
+    // Restrict client-supplied WGS84 coordinates to the Gyeongju region.
+    if (!(longitude >= 128.9 && longitude <= 129.65 && latitude >= 35.55 && latitude <= 36.12)) return null
+    return { name: id, longitude, latitude }
+  }
+  const a = endpoint(from,'from'), b = endpoint(to,'to')
   if (a?.latitude == null || a.longitude == null || b?.latitude == null || b.longitude == null) return fail('missing', 422)
   if (!env.KAKAO_REST_API_KEY?.trim()) return fail('apiKey', 503)
   const walk = mode === 'WALK'
@@ -50,12 +61,13 @@ export async function onRequestGet({ request, env }: { request: Request; env: { 
     s_name: a.name, e_name: b.name }).toString()
   try {
     const res = await fetch(url, { headers: { Authorization: 'KakaoAK ' + env.KAKAO_REST_API_KEY.trim() },
-      redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000) })
+      redirect: 'manual', signal: AbortSignal.timeout(15000) })
+    if (res.status >= 300 && res.status < 400) { diagnostic('Kakao',mode,res.status,'REDIRECT',null); return fail('apiFailed', 502) }
     const body = await res.json().catch(() => null) as Row | null
     diagnostic('Kakao', walk ? 'walk' : 'publictraffic', res.status, String(body?.status ?? body?.code ?? ''),
       Array.isArray(body?.routes) ? body.routes.length : body?.route ? 1 : null, !body, [401,403].includes(res.status))
     if (res.status === 429) return fail('routeQuota', 429)
-    if ([401,403].includes(res.status)) return fail('apiAuth', 502)
+    if ([401,403].includes(res.status) || [-401,-5,-4].includes(Number(body?.code))) return fail('apiAuth', 502)
     if (!body) return fail('apiFailed',502)
     if (body.code === -10) return fail('routeQuota', 429)
     if (missing.has(String(body.status))) return fail('routeEmpty', 404)
@@ -74,5 +86,5 @@ export async function onRequestGet({ request, env }: { request: Request; env: { 
       steps: Array.isArray(steps) ? steps.map(s => step(s, walk)) : [], source: 'KakaoMap',
       fetchedAt: new Date().toISOString(), landingUrl: link?.startsWith('https://map.kakao.com/') ? link : null }
     return respond(result, 200)
-  } catch { return fail('apiFailed', 502) }
+  } catch { diagnostic('Kakao',walk ? 'walk':'publictraffic',0,'REQUEST_FAILED',null); return fail('apiFailed', 502) }
 }

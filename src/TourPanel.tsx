@@ -19,11 +19,12 @@ function read(kind: TourKind, args: string) {
 
 interface Props {
   labels: Messages; language: Language; eventsOnly: boolean; date: string
+  themes?: readonly string[]
   hotelOnly?: boolean
   savedPlaces: TourPlace[]; togglePlace: (place: TourPlace) => void
-  selected: TourPlace | null; select: (place: TourPlace | null) => void
+  selected?: TourPlace | null; select?: (place: TourPlace) => void
 }
-export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, selected, select, savedPlaces, togglePlace }: Props) {
+export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, themes = [], selected, select, savedPlaces, togglePlace }: Props) {
   const [tab, setTab] = useState<TourKind>('attractions')
   const kind = eventsOnly ? 'festivals' : hotelOnly ? 'lodging' : tab
   const [query,setQuery] = useState('')
@@ -66,7 +67,15 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, selec
   const day = date.replaceAll('-', '')
   const items = (data?.items ?? []).filter(p => kind !== 'festivals' ||
     (/^\d{8}$/.test(p.start) && /^\d{8}$/.test(p.end) && p.start <= day && day <= p.end))
-  const visible = items
+  const visible = [...new Map(items.map(p=>[p.externalContentId,p])).values()]
+  function toggleEvent(p: TourPlace) {
+    select?.(p); setActive(p.externalContentId)
+  }
+  if (eventsOnly) {
+    const words: Record<string, RegExp> = {history:/역사|유산|신라/,art:/문화|전시|예술/,nature:/자연|숲|정원/,food:/음식|미식|커피/,photography:/사진|야경/}
+    const score = (p:TourPlace) => themes.filter(key=>words[key]?.test(p.name)).length
+    visible.sort((a,b)=>score(b)-score(a))
+  }
   const markers = visible.map(p => ({ ...p, id: 'tour-' + p.externalContentId }))
   const stamp = (s: string) => new Date(s).toLocaleString(language, { timeZone: 'Asia/Seoul' }) + ' KST'
   return <section className="event tour-panel">
@@ -77,21 +86,21 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, selec
     {kind !== 'festivals' && <form onSubmit={e => {e.preventDefault();setKeyword(query.trim());setPage(1)}}>
       <label>{labels.searchPlaces}<input value={query} maxLength={60} onChange={e => setQuery(e.target.value)} /></label>
       <button>{labels.searchPlaces}</button></form>}
-    {error ? <p role="alert">{labels.loadProblem} <button onClick={() => setRetry(n => n + 1)}>{labels.retryTravel}</button></p> :
+    {error ? <p role="alert">{labels[error]} <button onClick={() => setRetry(n => n + 1)}>{labels.retryTravel}</button></p> :
       !data ? <p role="status">{labels.loadingApi}</p> : <>
       <p><a href="https://www.data.go.kr/data/15101578/openapi.do">한국관광공사 TourAPI</a> · {stamp(data.fetchedAt)}</p>
       {!visible.length && <p>{labels[kind === 'festivals' ? 'noTourEvents' : 'apiEmpty']}</p>}
-      <div className="place-grid">{visible.map(p => <article className="place-card" key={p.externalContentId}>
-        <button className="secondary" aria-pressed={active === p.externalContentId} onClick={() => setActive(p.externalContentId)}>
-          <strong lang="ko">{p.name}</strong><small>{labels.detailsLink} ›</small></button>
+      <div className="place-grid">{visible.map(p => <article className="place-card" key={p.externalContentId} onClick={eventsOnly ? () => toggleEvent(p) : undefined}>
+        <button className="secondary" aria-pressed={eventsOnly ? selected?.externalContentId === p.externalContentId : active === p.externalContentId} onClick={e => { e.stopPropagation(); if(eventsOnly) toggleEvent(p); else setActive(p.externalContentId) }}>
+          <strong lang="ko">{p.name}</strong><small>{eventsOnly ? (selected?.externalContentId === p.externalContentId ? labels.selected : labels.add) : labels.detailsLink} ›</small></button>
         {p.imageUrl ? <figure><img loading="lazy" src={p.imageUrl} alt="" /><figcaption>한국관광공사 · KOGL {p.license}</figcaption></figure> : <div className="photo-placeholder" aria-hidden="true">✦</div>}
         <small>{labels[kind]}</small><small lang="ko">{p.address}</small><small>{p.latitude !== null && p.longitude !== null ? p.latitude + ', ' + p.longitude : labels.missing}</small>
-        {kind === 'festivals' && <><small>{p.start}–{p.end} · {labels.timeUnknown}</small>
-          <button aria-pressed={selected?.externalContentId === p.externalContentId} onClick={() => select(selected?.externalContentId === p.externalContentId ? null : p)}>{selected?.externalContentId === p.externalContentId ? labels.selected : labels.add}</button></>}
+        {eventsOnly && <small>{p.start}–{p.end} · {labels.timeUnknown}</small>}
         {kind !== 'festivals' && <label className="return"><input type="checkbox" checked={savedPlaces.some(v => v.externalContentId === p.externalContentId)}
-          onChange={() => togglePlace(p)} />{hotelOnly ? labels.select : labels.savePlace}</label>}
+          onChange={() => togglePlace(active === p.externalContentId && description ? {...p,description} : p)} />{labels.select}</label>}
+        {(active !== p.externalContentId || !description) && p.description && <p lang="ko">{p.description}</p>}
         {active === p.externalContentId && description && <p lang="ko">{description}</p>}
-        {active === p.externalContentId && detailError && <p role="status">{labels.loadProblem} <button onClick={() => setDetailAttempt(n => n+1)}>{labels.retryTravel}</button></p>}
+        {active === p.externalContentId && detailError && <p role="status">{labels.loadProblem} <button onClick={e => {e.stopPropagation(); setDetailAttempt(n => n+1)}}>{labels.retryTravel}</button></p>}
       </article>)}</div>
       {kind !== 'festivals' && <div className="actions">
         {page > 1 && <button onClick={() => setPage(n => n - 1)}>← {labels.back}</button>}
@@ -99,7 +108,7 @@ export function TourPanel({ labels, language, eventsOnly, date, hotelOnly, selec
       {markers.some(p => p.latitude !== null && p.longitude !== null) &&
         <MapView places={markers} selectedIds={active ? ['tour-' + active] : []} originIds={[]} labels={labels} />}
     </>}
-    {eventsOnly && selected && <p>{labels.event} · <span lang="ko">{selected.name}</span> · {labels.tourUnscheduled}</p>}
+    {eventsOnly && selected && <p>{labels.event} · <span lang="ko">{selected.name}</span></p>}
   </section>
 }
 const errorLabels = { apiLimit: true, apiAuth: true, apiKey: true, tourQuota: true, apiFailed: true }

@@ -41,7 +41,7 @@ export async function onRequestGet(ctx: Context) {
       for (let page = 1; ; page++) {
         url.search = new URLSearchParams({ serviceKey: portalKey(env.KMA_API_KEY), dataType: 'JSON',
           pageNo: String(page), numOfRows: '1000', base_date: base.date, base_time: base.time, nx: '100', ny: '91' }).toString()
-        const res = await fetch(url, { signal: AbortSignal.timeout(12000), redirect: 'error' })
+        const res = await fetch(url, { signal: AbortSignal.timeout(12000), redirect: 'manual' })
         const result = await portalPage(res, 'KMA', operation)
         items.push(...result.rows)
         if (items.length >= result.total || !result.rows.length) break
@@ -95,5 +95,5 @@ export async function onRequestGet(ctx: Context) {
     const response = Response.json(forecast, { headers: { 'Cache-Control': delayed ? 'public, max-age=30, s-maxage=60' : 'public, max-age=60, s-maxage=600' } })
     ctx.waitUntil(cache.put(cacheKey, response.clone()).catch(() => undefined))
     return response
-  } catch (e) { if (e instanceof ProviderError) return failure(e.key,e.status); diagnostic('KMA','getVilageFcst',0,'REQUEST_FAILED',null); return failure('apiFailed') }
+  } catch (e) { if (e instanceof ProviderError) return failure(e.key,e.status); diagnostic('KMA',operation,0,'REQUEST_FAILED',null); return failure('apiFailed') }
 }

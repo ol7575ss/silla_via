@@ -24,17 +24,17 @@ function useLiveData<T>(path: string, refresh: number) {
 }
 
 export function LivePanel({ labels, language, start, end, date, onRisk }: {
-  labels: Messages; language: Language; start: string; end: string; date: string; onRisk: (value: boolean) => void
+  labels: Messages; language: Language; start: string; end: string; date: string; onRisk?: (value: boolean) => void
 }) {
   const [refresh, setRefresh] = useState(0)
   const weather = useLiveData<Forecast>('/api/weather', refresh)
   const now = new Date(Date.now() + 9 * 3600000).toISOString()
   const today = now.slice(0,10).replaceAll('-', '')
   const hour = now.slice(11,13) + '00'
-  const times = weather.data?.hours.filter(h => h.fcstDate === date.replaceAll('-', '') && h.fcstDate + h.fcstTime >= today + hour) ?? []
+  const times = weather.data?.hours.filter(h => h.fcstDate === date.replaceAll('-', '') && h.fcstDate + h.fcstTime >= today + hour && h.fcstTime < end.replace(':','') && Number(h.fcstTime)+100 > Number(start.replace(':',''))) ?? []
   const risk = times.some(h => h.fcstTime < end.replace(':','') &&
     Number(h.fcstTime) + 100 > Number(start.replace(':','')) && ((h.POP ?? 0) > 0 || (h.PTY ?? 0) > 0))
-  useEffect(() => { onRisk(risk); return () => onRisk(false) }, [onRisk, risk])
+  useEffect(() => { onRisk?.(risk); return () => onRisk?.(false) }, [onRisk, risk])
   const stamp = (value: string) => new Date(value).toLocaleString(language, { timeZone: 'Asia/Seoul' }) + ' KST'
   function amount(raw: string | null) {
     if (!raw) return '—'
@@ -47,14 +47,15 @@ export function LivePanel({ labels, language, start, end, date, onRisk }: {
     <h2>{labels.forecast}</h2>
     {weather.data ? <>
       <p><a href={weather.data.source}>KMA</a> · {stamp(weather.data.fetchedAt)}</p>
+      {times[0] && <p><strong>{times[0].fcstTime.slice(0,2)}:00 KST</strong> · {times[0].TMP ?? '—'} °C · {labels.prob} {times[0].POP ?? '—'}%</p>}
       {risk && <p>{labels.riskNotice}</p>}
-      {!times.length && <p>{labels.forecastRange}</p>}<details><summary>{labels.hourly}</summary>
+      {!times.length && <p>{date.replaceAll('-','')<today ? labels.pastForecast : labels.forecastRange}</p>}<details><summary>{labels.hourly}</summary>
         {times.map(h => <p key={h.fcstDate + h.fcstTime}>
           <strong>{h.fcstDate.slice(0,4)}-{h.fcstDate.slice(4,6)}-{h.fcstDate.slice(6)} {h.fcstTime.slice(0,2)}:00 KST</strong><br />
           {h.TMP ?? '—'} °C · {labels.prob} {h.POP ?? '—'}% · {h.PTY !== null ? labels[types[h.PTY]] ?? '—' : '—'} · {amount(h.PCP)} · {labels.skyLabel} {h.SKY === 1 ? '☀' : h.SKY === 3 ? '🌤' : h.SKY === 4 ? '☁' : '—'}
         </p>)}
         <p>— · {labels.unknownValue}</p>
-      </details></> : <p role="status">{weather.error ? labels.loadProblem : labels.loadingApi}</p>}
+      </details></> : <p role="status">{weather.error ? labels[weather.error] : labels.loadingApi}</p>}
     <button type="button" className="secondary" onClick={() => setRefresh(n => n + 1)}>{labels.retryTravel}</button>
     {import.meta.env.DEV && new URLSearchParams(location.search).has('tools') && <details><summary>{labels.busStops}</summary><BusPanel labels={labels} /></details>}
   </section>

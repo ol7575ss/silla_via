@@ -1,6 +1,16 @@
 import type { Language } from './index'
 
 const en = {
+    pastForecast: 'Past dates are outside the current forecast.',
+    vehicleLocation: 'Current bus locations',
+    transitSnapshot: 'Transit estimates reflect the lookup time. Service for the chosen date and departure time is unconfirmed.',
+    mustStop: 'Required stop',
+    suggestedStop: 'Recommended stop',
+    noMatches: 'No matching places with confirmed coordinates were found for these interests.',
+    unknownLeg: 'Travel information unavailable for this leg.',
+    untimedPlaces: 'Selected candidates · a timetable and visit order could not be confirmed.',
+    stayEstimate: 'Estimated visit duration',
+
   begin: 'Start My Journey', styleTitle: 'What kind of Gyeongju trip would you like?', detailsTitle: 'Your trip details',
   mustTitle: 'Are there any places you definitely want to visit?', eventTitle: 'Would you like to include an event?',
   generate: 'Generate My Journey', cafeStyle: 'Café hopping', familyStyle: 'Family time', experienceStyle: 'Culture & experiences',
@@ -21,6 +31,16 @@ const en = {
 export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
   en,
   'ko': {
+    pastForecast: '지난 날짜는 현재 예보의 제공 범위를 벗어납니다.',
+    vehicleLocation: '현재 버스 위치',
+    transitSnapshot: '대중교통 소요시간은 조회 시점의 예상치입니다. 여행 날짜와 출발시각의 운행 여부는 미확인입니다.',
+    mustStop: '필수 방문지',
+    suggestedStop: '추천 방문지',
+    noMatches: '선택한 관심사로 좌표가 확인된 추천 장소를 찾지 못했습니다.',
+    unknownLeg: '이 구간의 이동정보를 확인할 수 없습니다.',
+    untimedPlaces: '방문 후보 목록입니다. 방문 순서와 시간표를 확정할 수 없습니다.',
+    stayEstimate: '추정 체류시간',
+
     begin: '내 여행 시작',
     styleTitle: '어떤 경주 여행을 하고 싶으세요?',
     detailsTitle: '여행 조건',
@@ -57,6 +77,16 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '보문호를 따라 걷는 호숫길',
   },
   'ja': {
+    pastForecast: '過去の日付は現在の予報の対象外です。',
+    vehicleLocation: '現在のバス位置',
+    transitSnapshot: '公共交通の所要時間は照会時点の目安です。旅行日時の運行は未確認です。',
+    mustStop: '必須の訪問先',
+    suggestedStop: 'おすすめの訪問先',
+    noMatches: '選んだ興味に合う位置確認済みの場所が見つかりません。',
+    unknownLeg: 'この区間の移動情報は未確認です。',
+    untimedPlaces: '訪問候補です。訪問順と時刻は未確定です。',
+    stayEstimate: '滞在時間の目安',
+
     begin: '旅を始める',
     styleTitle: 'どんな慶州の旅にしたいですか？',
     detailsTitle: '旅の条件',
@@ -93,6 +123,16 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '普門湖畔の散策路。',
   },
   'es': {
+    pastForecast: 'Las fechas pasadas quedan fuera del pronóstico actual.',
+    vehicleLocation: 'Ubicación actual de los autobuses',
+    transitSnapshot: 'El transporte refleja la consulta actual. El servicio para la fecha y hora del viaje está sin confirmar.',
+    mustStop: 'Visita obligatoria',
+    suggestedStop: 'Visita recomendada',
+    noMatches: 'No se encontraron lugares con coordenadas para estos intereses.',
+    unknownLeg: 'No se dispone de información para este trayecto.',
+    untimedPlaces: 'Lugares candidatos. No se pudo confirmar el orden ni el horario.',
+    stayEstimate: 'Duración estimada de la visita',
+
     begin: 'Iniciar mi viaje',
     styleTitle: '¿Qué tipo de viaje te gustaría hacer en Gyeongju?',
     detailsTitle: 'Detalles del viaje',
@@ -129,6 +169,16 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: 'Paseos junto al lago Bomun.',
   },
   'zh-CN': {
+    pastForecast: '当前预报不包含过去的日期。',
+    vehicleLocation: '公交车当前位置',
+    transitSnapshot: '公共交通用时为查询时的估计。旅行当日及出发时刻的班次尚未确认。',
+    mustStop: '必访地点',
+    suggestedStop: '推荐地点',
+    noMatches: '未找到符合兴趣且坐标已确认的地点。',
+    unknownLeg: '此路段的交通信息尚未确认。',
+    untimedPlaces: '候选地点。尚无法确定顺序和时间表。',
+    stayEstimate: '预计停留时间',
+
     begin: '开始我的旅行',
     styleTitle: '您想怎样游览庆州？',
     detailsTitle: '行程设置',
@@ -165,6 +215,16 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '沿普门湖漫步的湖滨步道。',
   },
   'zh-TW': {
+    pastForecast: '目前預報不含過去的日期。',
+    vehicleLocation: '公車目前位置',
+    transitSnapshot: '大眾運輸時間為查詢時的估計。旅行當日及出發時刻的班次尚未確認。',
+    mustStop: '必訪地點',
+    suggestedStop: '推薦地點',
+    noMatches: '找不到符合興趣且座標已確認的地點。',
+    unknownLeg: '此路段的交通資訊尚未確認。',
+    untimedPlaces: '候選地點。尚無法確定順序和時間表。',
+    stayEstimate: '預估停留時間',
+
     begin: '開始我的旅行',
     styleTitle: '您想怎樣遊覽慶州？',
     detailsTitle: '行程設定',

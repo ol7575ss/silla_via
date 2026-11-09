@@ -50,7 +50,7 @@ export default {
   "station": "경주역",
   "hwangnidan-stay": "황리단길 인근 테스트 숙소",
   "bomun-stay": "보문관광단지 인근 테스트 숙소",
-  journey: "나의 경주 여행 코스",
+  journey: "나의 여행 코스",
   choosePlaces: "가고 싶은 관광지를 한 곳 이상 선택하세요.",
   timeRange: "종료시간을 시작시간보다 늦게 설정하세요.",
   limit: "필수 관광지는 최대 다섯 곳까지 선택하세요.",

@@ -3,7 +3,7 @@ export const themeNames = {
   art: 'Art & Museum', photography: 'Photography',
 }
 export type Theme = keyof typeof themeNames
-type Setting = 'indoor' | 'outdoor'
+type Setting = 'indoor' | 'outdoor' | 'unknown'
 
 export interface Place {
   id: string

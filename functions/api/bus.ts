@@ -24,7 +24,7 @@ export async function onRequestGet(ctx: Context) {
     if (cached) return cached
     args.set('serviceKey',portalKey(ctx.env.BUS_API_KEY))
     const res = await fetch('https://apis.data.go.kr/5050000/openapi01/' + op.path + '?' + args,
-      { redirect: 'error', signal: AbortSignal.timeout(12000) })
+      { redirect: 'manual', signal: AbortSignal.timeout(12000) })
     const { payload, empty, code } = await portalEnvelope(res,'GyeongjuBus',op.path)
     const entries = payload?.body?.[op.list]?.[op.item]
     const rows = Array.isArray(entries) ? entries : entries && typeof entries === 'object' ? [entries] : []

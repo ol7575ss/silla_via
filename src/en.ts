@@ -10,7 +10,7 @@ export const en = {
   empty: 'No cultural events match your selected interests.',
   add: 'Add to My Trip', skip: 'Skip', summary: 'Your trip selections',
   noEvent: 'No event added.', event: 'Selected event',
-  journey: "Your Gyeongju Journey",
+  journey: "My Journey",
   choosePlaces: "Select at least one place to visit.",
   timeRange: "Choose an end time later than the start time.",
   limit: "Choose up to five required places.",
