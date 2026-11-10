@@ -119,7 +119,10 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
       button.type = 'button'
       button.className = 'place-pin' + (selected ? ' chosen' : '') + (origin ? ' origin-pin' : '') + (p.id === finalId ? ' final-pin' : '')
       button.textContent = [origin ? '⚑' : '',visitOrder?.[p.id],p.id === finalId ? '⚐' : ''].filter(Boolean).join('') || (selected ? '✓' : '●')
-      button.title = selected ? name + ' · ' + labels.selected : name
+      const busKind=p.id.startsWith('reported-')?'reported':p.id.startsWith('stop-board')?'board':p.id.startsWith('stop-alight')?'alight':null
+      if(busKind){button.classList.add('transport-pin',busKind);button.textContent=busKind==='reported'?'▣':busKind==='board'?'↑':'↓'}
+      const label=busKind ? labels[busKind==='reported'?'reportedStop':busKind]+' · '+name : name
+      button.title = selected ? label + ' · ' + labels.selected : label
       const status = statuses?.[p.id]
       if (status) {
         button.classList.add(status)
@@ -131,7 +134,7 @@ export function MapView({ places, selectedIds, originIds, visitOrder, statuses, 
       }
       button.setAttribute('aria-label', button.title)
       button.onclick = () => { setActiveId(p.id); onPlaceClick?.(p.id) }
-      markers.push(new Marker({ element: button }).setLngLat([p.longitude, p.latitude]).addTo(instance))
+      markers.push(new Marker({ element: button, offset: busKind==='reported' ? [0,-19] : [0,0] }).setLngLat([p.longitude, p.latitude]).addTo(instance))
     }
     return () => markers.forEach(marker => marker.remove())
   }, [instance, places, selectedIds, originIds, visitOrder, statuses, currentId, labels, onPlaceClick, finalId])

@@ -1,6 +1,11 @@
 import type { Language } from './index'
 
 const en = {
+    busBusy: 'This route is being refreshed. Try again shortly.',
+    reportedStop: 'Reported stop',
+    lookupTime: 'City data retrieved',
+    busEtaUnknown: 'Arrival time unavailable',
+
     weatherUnavailable: 'Forecast unavailable. This itinerary uses the other travel conditions.',
     rainShelter: 'Indoor visit during forecast rain.',
     rainOutdoor: 'Rain is possible during this outdoor visit. Change your travel window or keep this stop.',
@@ -38,6 +43,11 @@ const en = {
 export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
   en,
   'ko': {
+    busBusy: '이 노선을 조회 중입니다. 잠시 후 다시 확인해 주세요.',
+    reportedStop: '차량이 보고된 정류장',
+    lookupTime: '경주시 정보 조회 시각',
+    busEtaUnknown: '실시간 도착예정시간 미확인',
+
     weatherUnavailable: '예보를 불러오지 못해 다른 여행 조건으로 일정을 계산했습니다.',
     rainShelter: '강수 예상 시간에 실내 방문을 배치했습니다.',
     rainOutdoor: '이 야외 방문 시간에 강수 가능성이 있습니다. 여행 시간을 조정하거나 방문지를 유지할 수 있습니다.',
@@ -91,6 +101,11 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '보문호를 따라 걷는 호숫길',
   },
   'ja': {
+    busBusy: '路線を更新中です。しばらくしてから再試行してください。',
+    reportedStop: '車両が報告された停留所',
+    lookupTime: '市の情報取得時刻',
+    busEtaUnknown: '到着予定時刻は未確認',
+
     weatherUnavailable: '予報を取得できないため、ほかの旅行条件で計算しました。',
     rainShelter: '雨の予報に合わせた屋内訪問です。',
     rainOutdoor: '屋外訪問中に雨の可能性があります。時間を調整するか、この訪問を維持できます。',
@@ -144,6 +159,11 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '普門湖畔の散策路。',
   },
   'es': {
+    busBusy: 'La línea se está actualizando. Inténtalo en un momento.',
+    reportedStop: 'Parada comunicada',
+    lookupTime: 'Consulta municipal',
+    busEtaUnknown: 'Hora de llegada sin confirmar',
+
     weatherUnavailable: 'No se pudo cargar el pronóstico. Se usaron las demás condiciones del viaje.',
     rainShelter: 'Visita interior durante el periodo de lluvia prevista.',
     rainOutdoor: 'Podría llover durante esta visita al aire libre. Puedes ajustar el horario o mantener la visita.',
@@ -197,6 +217,11 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: 'Paseos junto al lago Bomun.',
   },
   'zh-CN': {
+    busBusy: '线路正在更新，请稍后再试。',
+    reportedStop: '车辆上报站点',
+    lookupTime: '市政数据查询时间',
+    busEtaUnknown: '预计到站时间未确认',
+
     weatherUnavailable: '未能获取天气预报，已根据其他旅行条件计算。',
     rainShelter: '降雨预报时段安排了室内参观。',
     rainOutdoor: '此次户外参观期间可能降雨。可调整旅行时段或保留该站。',
@@ -250,6 +275,11 @@ export const journeyCopy: Record<Language, Record<keyof typeof en,string>> = {
     bomunIntro: '沿普门湖漫步的湖滨步道。',
   },
   'zh-TW': {
+    busBusy: '路線更新中，請稍後再試。',
+    reportedStop: '車輛回報站點',
+    lookupTime: '市府資料查詢時間',
+    busEtaUnknown: '預計到站時間未確認',
+
     weatherUnavailable: '無法取得天氣預報，已依其他旅行條件計算。',
     rainShelter: '預報降雨時段安排了室內參觀。',
     rainOutdoor: '此次戶外參觀期間可能降雨。可調整旅行時段或保留此站。',

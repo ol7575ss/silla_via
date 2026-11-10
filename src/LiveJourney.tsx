@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BusLegInfo } from './BusLegInfo'
+import type { BusSelection,TransitPin } from './transitStops'
 import { LegGuide } from './LegGuide'
 import { MapView } from './MapView'
 import type { Messages } from './i18n'
@@ -15,8 +17,11 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
   const [attempt,retry]=useState(0)
   const [data,setData]=useState<Prepared|null>(null)
   const [problem,setProblem]=useState('')
+  const [bus,selectBus]=useState<BusSelection|null>(null)
+  const [pins,setPins]=useState<TransitPin[]>([])
   const [active,focus]=useState('')
   const [revised,setRevised]=useState<Journey|null>(null)
+  useEffect(()=>{selectBus(null);setPins([])},[data,revised])
   const [done,setDone]=useState<Visit[]>([])
   const [currentTime,setTime]=useState(trip.startTime)
   const [kept,keep]=useState(false)
@@ -78,7 +83,7 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
     if(!origin || !destination) return null
     const window=arrival===undefined ? undefined : clock(arrival-Math.ceil(r.seconds/60))+'–'+clock(arrival)
     return <LegGuide key={key} route={r} from={{...origin,name:name(origin)}} to={{...destination,name:name(destination)}}
-      scheduled={arrival!==undefined} window={window} t={t} highlight={()=>focus(key)}/>
+      selectBus={selectBus} selectionKey={bus?.key} scheduled={arrival!==undefined} window={window} t={t} highlight={()=>focus(key)}/>
   }
   const forecast=latest ?? data.forecast
   const hours=forecastHours(forecast,date)
@@ -101,7 +106,8 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
     {!journey && visits.length>0 && <><p>{t.untimedPlaces}</p>
       <details><summary>{t.routeMode}</summary>{visits.map(p=><div key={p.id}>{leg(data.origin.id,p.id)}</div>)}
         {data.final && visits.filter(p=>p.id!==data.final?.id).map(p=><div key={p.id}>{leg(p.id,data.final!.id)}</div>)}</details></>}
-    <MapView finalId={finalId} places={mapPoints} selectedIds={active ? active.split('/') : []} onPlaceClick={focus} originIds={[trip.originId]} visitOrder={order} labels={t}/>
+    <MapView finalId={finalId} places={[...mapPoints,...pins]} selectedIds={pins.length ? pins.map(p=>p.id) : active ? active.split('/') : []} onPlaceClick={id=>{if(!pins.some(p=>p.id===id))selectBus(null);focus(id)}} originIds={[trip.originId]} visitOrder={order} labels={t}/>
+    {bus && <BusLegInfo key={bus.key} selection={bus} labels={t} onPins={setPins}/>}
     <p className={active===trip.originId ? 'trip-endpoint active' : 'trip-endpoint'}><button onClick={()=>focus(trip.originId)}>{t.origin} · {name(data.origin)} · {trip.startTime}</button></p>
     <ol className="timeline">{visits.map((p,i)=>{
       const v=journey?.visits[i]
@@ -111,7 +117,7 @@ export function LiveJourney({trip,date,finalId,hotel,saved,event,styles,labels:t
         <small>{t[p.id===data.eventStop?.id?'event':data.required.includes(p.id)?'mustStop':'suggestedStop']}</small>
         {v && rainOverlap(hours,v.departure-v.stay,v.departure)>0 && p.setting!=='unknown' && <p>{t[p.setting==='indoor'?'rainShelter':'rainOutdoor']}</p>}
         {!!p.themes.length && <small> · {p.themes.map(k=>t[k]).join(' · ')}</small>}
-        <h2><button onClick={()=>focus(p.id)} aria-pressed={active===p.id}>{v && v.order+'. '}{name(p)}</button></h2>
+        <h2><button onClick={()=>{selectBus(null);focus(p.id)}} aria-pressed={active===p.id}>{v && v.order+'. '}{name(p)}</button></h2>
         {p.tour?.imageUrl && <figure><img src={p.tour.imageUrl} alt=""/><figcaption>한국관광공사 · KOGL {p.tour.license}</figcaption></figure>}
         {p.tour && <small>{p.tour.address} · <a href={p.source}>한국관광공사</a></small>}
         {p.tour?.description && <p lang="ko">{p.tour.description}</p>}

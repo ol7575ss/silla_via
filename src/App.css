@@ -160,3 +160,12 @@ summary { cursor:pointer; padding: 9px 0; color: #245a50; }
 .leg-guide li small { display: block; }
 button.place-pin.final-pin { background:#805c23; border-radius:6px; min-width:30px; width:auto; padding-inline:4px; }
 .trip-endpoint button { background:transparent; color:inherit; padding-inline:0; } .trip-endpoint.active button,.endpoint-active { outline:2px solid #87692f; }
+.transport-summary,.bus-service { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; }
+.transport-summary { margin-top:.35rem; font-size:.86rem; }
+.line-badge { display:inline-block; background:#155c54; color:#fff; padding:.25rem .65rem; border-radius:8px; }
+.line-badge[aria-pressed=true] { outline:3px solid #bd924c; }
+.bus-service { background:#edf4ef; padding:12px; border-radius:12px; margin-block:12px; }
+.bus-service small { flex-basis:100%; }
+button.place-pin.transport-pin { border-radius:6px; font-weight:bold; background:#1b5980; }
+button.place-pin.transport-pin.alight { background:#713f73; }
+button.place-pin.transport-pin.reported { background:#973e19; }
